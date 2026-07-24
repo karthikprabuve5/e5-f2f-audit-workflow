@@ -41,9 +41,9 @@ async def process_f2f(
     #     retries={"max_attempts": 3, "mode": "adaptive"},  # rides out throttling
     # )
 
-    openai_model = ChatBedrockConverse(
-        model=os.getenv("MODEL_OPENAI"),
-        provider="openai",
+    kimi_model = ChatBedrockConverse(
+        model=os.getenv("MODEL_KIMI"),
+        provider="monshootai",
         temperature=0.0
     )
 
@@ -59,29 +59,29 @@ async def process_f2f(
         
 
     classification_agent = create_deep_agent(
-        model = anthropic_model,
-        system_prompt= read_prompt_from_file("prompts/classification_agent_system_prompt.md"),
-        backend=CompositeBackend(
-            default= StateBackend(),
-            routes={
-                "/skills/": FilesystemBackend(root_dir="/home/ubuntu/projects/e5-f2f/e5-f2f-workflow-agent/skills", virtual_mode=True)
-            }
-        ),
-        skills = ["skills"],
-    )
+            model = anthropic_model,
+            system_prompt= read_prompt_from_file("prompts/classification_agent_system_prompt.md"),
+            backend=CompositeBackend(
+                default= StateBackend(),
+                routes={
+                    "/skills/": FilesystemBackend(root_dir="/home/ubuntu/projects/e5-f2f-audit-workflow/skills", virtual_mode=True)
+                }
+            ),
+            skills = ["skills"],    
+        )
     if not file.filename.endswith(".md"):
         raise HTTPException(status_code=400, detail="Please upload a Markdown (.md) file.")
 
     file_content = (await file.read()).decode("utf-8")
 
-    files = {"/documents/F2F.md": create_file_data(file_content)}
+    files = {"/workspace/documents/F2F.md": create_file_data(file_content)}
 
     classification_agent_result = classification_agent.invoke({
         "messages": [{"role": "user", "content": "split the encounters"}],
         "files": files
     })
 
-    result = json.loads(classification_agent_result['files']["/documents/F2F_classification_results.json"]['content'])
+    result = json.loads(classification_agent_result['files']["/workspace/documents/outputs/classification/results.json"]['content'])
 
     return JSONResponse(status_code=200, content={"classification_result": result})
 
