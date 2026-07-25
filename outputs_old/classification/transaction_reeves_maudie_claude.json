@@ -1,0 +1,91 @@
+{
+    "total_encounters": 4,
+    "encounters": [
+        {
+            "encounter_index": 1,
+            "encounter_category": "discharge_and_transition",
+            "encounter_subcategory": "7.8",
+            "encounter_label": "Referral Note or Letter",
+            "pages": [
+                1,
+                2
+            ],
+            "page_start": 1,
+            "page_end": 2,
+            "line_start": 1,
+            "line_end": 85,
+            "split_anchor": "### Page 1",
+            "parent_encounter_index": null,
+            "provider_name": "ZARINA CALINGO, NP",
+            "encounter_date": "2026-04-13",
+            "classification_confidence": 0.95,
+            "classification_notes": "Formal Referral Order from Zarina Calingo, NP to Angels Care Home Health for home health services. Contains referral order information, diagnosis (F03.A0), and patient demographics. Page 2 is shared with Encounter 2; line fields populated."
+        },
+        {
+            "encounter_index": 2,
+            "encounter_category": "clinical_encounter_notes",
+            "encounter_subcategory": "3.2",
+            "encounter_label": "Office Visit or Outpatient Encounter Note",
+            "pages": [
+                2,
+                3,
+                4,
+                5,
+                6
+            ],
+            "page_start": 2,
+            "page_end": 6,
+            "line_start": 86,
+            "line_end": 562,
+            "split_anchor": "---",
+            "parent_encounter_index": null,
+            "provider_name": "ZARINA CALINGO, NP",
+            "encounter_date": "2026-03-27",
+            "classification_confidence": 0.97,
+            "classification_notes": "Office visit (Sick Visit) dated 03/27/2026. Chief complaint of decreased urinary output. Includes vitals, medications, vaccines, problem list, HPI, ROS, physical exam, assessment/plan (UTI symptoms, urinalysis results), patient instructions, and encounter sign-off. Page 2 shared with Encounter 1; page 6 shared with Encounter 3; line fields populated."
+        },
+        {
+            "encounter_index": 3,
+            "encounter_category": "clinical_encounter_notes",
+            "encounter_subcategory": "3.2",
+            "encounter_label": "Office Visit or Outpatient Encounter Note",
+            "pages": [
+                6,
+                7,
+                8,
+                9,
+                10
+            ],
+            "page_start": 6,
+            "page_end": 10,
+            "line_start": 563,
+            "line_end": 980,
+            "split_anchor": "Encounter Date: 01/23/2026",
+            "parent_encounter_index": null,
+            "provider_name": "ZARINA CALINGO, NP",
+            "encounter_date": "2026-01-23",
+            "classification_confidence": 0.97,
+            "classification_notes": "Office visit (Follow-Up Visit) dated 01/23/2026. Patient accompanied by son for follow-up on dementia, hypertension, CKD, hyperlipidemia, and pre-diabetes. Includes vitals, medications, vaccines, problem list, HPI, ROS, physical exam, assessment/plan, discussion notes, and encounter sign-off. Page 6 shared with Encounter 2; page 10 shared with Encounter 4; line fields populated."
+        },
+        {
+            "encounter_index": 4,
+            "encounter_category": "discharge_and_transition",
+            "encounter_subcategory": "7.8",
+            "encounter_label": "Referral Note or Letter",
+            "pages": [
+                10,
+                11
+            ],
+            "page_start": 10,
+            "page_end": 11,
+            "line_start": 981,
+            "line_end": 1091,
+            "split_anchor": "Privia Medical Group West Texas, PLLC",
+            "parent_encounter_index": null,
+            "provider_name": "ZARINA CALINGO, NP",
+            "encounter_date": "2026-04-13",
+            "classification_confidence": 0.95,
+            "classification_notes": "Referral Note for Maudie M Reeves dated 04/13/2026 from Privia Medical Group West Texas to Angels Care Home Health. Contains structured table of contents with demographics, reason for visit, assessment, plan of treatment, reason for referral, problems, medications, physical exam, and other clinical sections. Page 10 shared with Encounter 3; line fields populated."
+        }
+    ]
+}

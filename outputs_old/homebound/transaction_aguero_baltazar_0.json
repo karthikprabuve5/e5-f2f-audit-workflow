@@ -1,0 +1,80 @@
+{
+    "schema_version": "1.0",
+    "parameter_id": "homebound_status",
+    "client_id": "DEFAULT",
+    "encounter_index": 1,
+    "evaluated_at": "2026-03-30T11:32:00Z",
+    "status": "NOT_MET",
+    "confidence": 0.45,
+    "result": {
+        "is_documented": true,
+        "prong_1": {
+            "met": true,
+            "criteria_met": [
+                "device_needed"
+            ],
+            "criteria_evaluated": [
+                "device_needed",
+                "special_transport",
+                "assistance_of_person",
+                "medically_contraindicated"
+            ]
+        },
+        "prong_2": {
+            "met": false,
+            "normal_inability_met": false,
+            "considerable_effort_met": false
+        },
+        "allowable_absences_noted": false,
+        "allowable_absences": []
+    },
+    "evidence": [
+        {
+            "evidence_id": "E001",
+            "verbiage": "\u2463 Wheelchair for mobility",
+            "page": 1,
+            "line_start": 70,
+            "line_end": 70,
+            "section": "Orders",
+            "context": "Assistive device need \u2014 Prong 1",
+            "criterion_matched": "HB_CRITERIA_ONE",
+            "signal_strength": "STRONG"
+        }
+    ],
+    "rules_applied": {
+        "cms": [
+            {
+                "section_id": "HB_CRITERIA_ONE",
+                "outcome": "PASSED",
+                "evidence_refs": [
+                    "E001"
+                ],
+                "detail": "Patient requires wheelchair for mobility, meeting the device_needed criterion.",
+                "negative_finding": null
+            },
+            {
+                "section_id": "HB_CRITERIA_TWO",
+                "outcome": "FAILED",
+                "evidence_refs": [],
+                "detail": "No documentation of normal inability to leave home or considerable and taxing effort found.",
+                "negative_finding": "Looked for: normal inability to leave home, considerable and taxing effort, confined to home language. None found."
+            }
+        ],
+        "client": []
+    },
+    "reasoning": {
+        "status": "NOT_MET",
+        "summary": "Wheelchair need documented satisfying Prong 1, but Prong 2 criteria (normal inability and considerable effort) not found in encounter.",
+        "sources": [
+            {
+                "evidence_id": "E001",
+                "page": 1,
+                "line_start": 70,
+                "line_end": 70,
+                "description": "Wheelchair for mobility \u2014 device_needed criterion"
+            }
+        ],
+        "missing": "Prong 2 requires both normal inability to leave home AND considerable and taxing effort documentation. Neither criterion is present in this brief order form.",
+        "agency_warnings": []
+    }
+}

@@ -24,12 +24,6 @@
 
 Both prongs must be satisfied for homebound status to be MET.
 
-**Phrase-alone rule (§30.1.1):** Standardized phrases ("taxing effort to leave home")
-are neither required nor sufficient on their own. Criterion Two requires clinical
-context — diagnosis, duration, functional limitations, clinical course, prognosis,
-or therapeutic intervention results — that together establish both sub-criteria.
-Phrase + clinical context = STRONG. Phrase alone = WEAK.
-
 ---
 
 ## Language Thresholds

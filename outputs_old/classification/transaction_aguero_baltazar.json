@@ -1,0 +1,46 @@
+{
+    "total_encounters": 2,
+    "encounters": [
+        {
+            "encounter_index": 1,
+            "encounter_category": "UNPLACED",
+            "encounter_subcategory": "UNPLACED",
+            "encounter_label": "Physician Order Form",
+            "pages": [
+                1
+            ],
+            "page_start": 1,
+            "page_end": 1,
+            "line_start": null,
+            "line_end": null,
+            "split_anchor": null,
+            "parent_encounter_index": null,
+            "provider_name": "FNP-C",
+            "encounter_date": "2026-03-30",
+            "classification_confidence": 0.75,
+            "classification_notes": "Physician order form with orders for DDC home, TCM F/U, HH for nursing/therapy, and wheelchair. Not a clinical encounter note; does not match defined taxonomy categories."
+        },
+        {
+            "encounter_index": 2,
+            "encounter_category": "clinical_encounter_notes",
+            "encounter_subcategory": "3.1",
+            "encounter_label": "History and Physical (H&P)",
+            "pages": [
+                2,
+                3,
+                4,
+                5
+            ],
+            "page_start": 2,
+            "page_end": 5,
+            "line_start": null,
+            "line_end": null,
+            "split_anchor": null,
+            "parent_encounter_index": null,
+            "provider_name": "Kristen L Treger, MD",
+            "encounter_date": "2026-03-15",
+            "classification_confidence": 0.98,
+            "classification_notes": "Hospitalist Admission H&P with CC, HPI, ROS, PMH, PSH, medications, allergies, social history, family history, physical exam, labs, imaging, and Assessment/Plan. Electronically signed."
+        }
+    ]
+}

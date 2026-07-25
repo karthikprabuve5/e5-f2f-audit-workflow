@@ -69,8 +69,7 @@ Fails if no Prong 1 criterion documented.
 | requires assistance of another person | 1 | assistance_of_person | Strong |
 | special transportation required | 1 | special_transport | Strong |
 | medically contraindicated to leave | 1 | medically_contraindicated | Strong |
-| considerable and taxing effort + clinical context (diagnosis, functional limits, clinical course) | 2 | considerable_effort | Strong |
-| considerable and taxing effort — phrase alone, no clinical detail | 2 | considerable_effort | Weak — flag; CMS requires clinical context, not just the phrase |
+| considerable and taxing effort | 2 | considerable_effort | Strong |
 | unable to leave without assistance | 2 | normal_inability | Strong |
 | oxygen dependent, cannot exert | 1 + 2 | medically_contraindicated + considerable_effort | Strong |
 | confined to home due to [condition] | 1 + 2 | needs detail to confirm sub-criterion | Needs detail |

@@ -1,0 +1,46 @@
+{
+    "total_encounters": 2,
+    "encounters": [
+        {
+            "encounter_index": 1,
+            "encounter_category": "physician_orders",
+            "encounter_subcategory": "8.3",
+            "encounter_label": "Written Physician Order",
+            "pages": [
+                1
+            ],
+            "page_start": 1,
+            "page_end": 1,
+            "line_start": null,
+            "line_end": null,
+            "split_anchor": null,
+            "parent_encounter_index": null,
+            "provider_name": "FNP-C",
+            "encounter_date": "2026-03-30",
+            "classification_confidence": 0.91,
+            "classification_notes": "Physician order sheet from Valley House SNF; orders include discharge home with meds/narcs, TCM follow-up with PCP in 5-7 days, home health for nursing and therapy, and wheelchair for mobility. Signed by FNP-C on 3/30/26. No accompanying clinical narrative \u2014 standalone order document."
+        },
+        {
+            "encounter_index": 2,
+            "encounter_category": "clinical_encounter_notes",
+            "encounter_subcategory": "3.1",
+            "encounter_label": "History and Physical (H&P)",
+            "pages": [
+                2,
+                3,
+                4,
+                5
+            ],
+            "page_start": 2,
+            "page_end": 5,
+            "line_start": null,
+            "line_end": null,
+            "split_anchor": null,
+            "parent_encounter_index": null,
+            "provider_name": "Kristen L Treger, MD",
+            "encounter_date": "2026-03-15",
+            "classification_confidence": 0.98,
+            "classification_notes": "Hospitalist Admission H+P for Baltazar Arispe Aguero (MRN 20160861); encounter date 03/15/2026; spans internal pages 1/4 through 4/4; includes CC, HPI, PMH, PSH, medications, allergies, social/family history, physical exam, labs, imaging, assessment/plan; electronically signed by Kristen L Treger, MD at 3/15/2026 6:10 PM."
+        }
+    ]
+}

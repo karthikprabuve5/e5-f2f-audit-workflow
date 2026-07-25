@@ -4,7 +4,7 @@ description: >-
   Use this skill when the task involves reading a paginated Medicare Home Health
   Face-to-Face (F2F) markdown document and segmenting it into individually typed
   clinical encounters. Covers boundary detection, same-page splits with line-level
-  references, encounter type classification using a 14-category taxonomy, and
+  references, encounter type classification using a 12-category taxonomy, and
   structured JSON output. Apply before any parameter extraction, eligibility
   validation, or CMS audit work begins.
 metadata:
@@ -20,7 +20,7 @@ compatibility: >-
 ## Overview
 
 Segments a paginated F2F markdown document (`### Page N` format) into individual
-typed clinical encounters. Each encounter is classified using a strict 14-category
+typed clinical encounters. Each encounter is classified using a strict 12-category
 taxonomy and returned as structured JSON.
 
 This skill does **not** perform CMS eligibility validation, parameter extraction,
@@ -92,14 +92,12 @@ Then read the relevant pattern file based on what you found in the document:
 
 Use exact values from `references/categories_classification.md`.
 
-**Priority order (apply in sequence — first match wins):**
-1. Explicit F2F title, no telehealth → `f2f_encounter / 1.1`
-2. Telehealth indicators present + explicit F2F → `telehealth_encounter / 3.5`
-3. Telehealth indicators present, no F2F → `telehealth_encounter / 3.1`–`3.4`
-4. CMS-485 / "Certification Period" / "Frequency/Duration of Visits" → `poc_485`
-5. "Hospital Course" + "Discharge Diagnosis" → `discharge_and_transition / 9.1`
-6. Explicit Addendum → `addendum / ADDENDUM` (set `parent_encounter_index`)
-7. `UNPLACED` — only when classification cannot be made with confidence
+**Priority order:**
+1. Face-to-Face Certification → `eligibility_certification / 1.1`
+2. Telehealth Encounter → `clinical_encounter_notes / 3.7`
+3. Hospital Course + Discharge Diagnosis → `discharge_and_transition / 7.1`
+4. Explicit Addendum → `addendum / ADDENDUM` (set `parent_encounter_index`)
+5. `UNPLACED` — only when classification cannot be made with confidence
 
 **Provider name:** Extract exactly as written. Return `null` if absent. Do not infer.
 
