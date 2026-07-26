@@ -20,15 +20,22 @@ from . import bootstrap
 from .bootstrap import RunMode
 from .core.document_source import DocumentKind, DocumentSource
 from .core.logging_setup import get_logger
+from .core.result_store import SUMMARY_FILENAME
 from .pipelines.f2f_pipeline import F2fPipeline
 
 logger = get_logger(__name__)
 
 # ---- Run configuration (edit these) ----
-RUN_MODE: RunMode = RunMode.SELECTED
+RUN_MODE: RunMode = RunMode.FULL
 SELECTED_TRANSACTIONS: list[str] = [
-    "transaction_aguero_baltazar",
+# "transaction_anzaldua_esther",
+# "transaction_fisk_rolana",
+# "transaction_brewer_judy",
+# "transaction_narvaez_jose_a",
+# "transaction_reeves_maudie",
 ]
+# Re-run transactions even if their F2F summary already exists (overwrites it).
+FORCE_RERUN: bool = False
 
 
 async def _run_one(
@@ -62,9 +69,17 @@ async def _run_batch(transaction_ids: list[str]) -> None:
     pipeline = bootstrap.build_f2f_pipeline()
     document_source = bootstrap.build_document_source()
     succeeded: list[str] = []
+    skipped: list[str] = []
     failed: dict[str, str] = {}
 
     for transaction_id in transaction_ids:
+        if not FORCE_RERUN and bootstrap.output_exists(transaction_id, SUMMARY_FILENAME):
+            skipped.append(transaction_id)
+            logger.info(
+                "Transaction already processed, skipping",
+                extra={"transaction_id": transaction_id, "marker": SUMMARY_FILENAME},
+            )
+            continue
         try:
             await _run_one(pipeline, document_source, transaction_id)
             succeeded.append(transaction_id)
@@ -78,7 +93,12 @@ async def _run_batch(transaction_ids: list[str]) -> None:
 
     logger.info(
         "F2F batch complete",
-        extra={"total": len(transaction_ids), "succeeded": succeeded, "failed": failed},
+        extra={
+            "total": len(transaction_ids),
+            "succeeded": succeeded,
+            "skipped": skipped,
+            "failed": failed,
+        },
     )
 
 

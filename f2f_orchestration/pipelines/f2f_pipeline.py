@@ -169,6 +169,12 @@ class F2fPipeline(BasePipeline):
                     },
                 )
             else:
+                # The agent only sees its own single-encounter chunk, so it
+                # cannot know its position in the document and always emits
+                # encounter_index=1. Overwrite it with the real index, which the
+                # pipeline knows (and already uses for the filename).
+                if isinstance(outcome, dict):
+                    outcome["encounter_index"] = encounter_index
                 result_store.store_encounter_agent(agent_name, encounter_index, outcome)
                 succeeded.append(agent_name)
 

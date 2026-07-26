@@ -113,6 +113,16 @@ def build_document_source() -> LocalDirectoryDocumentSource:
     return LocalDirectoryDocumentSource(_ocr_markdown_dir())
 
 
+def output_exists(transaction_id: str, filename: str) -> bool:
+    """True when ``filename`` already exists under this transaction's outputs dir.
+
+    Used by the entrypoints to skip transactions a pipeline has already finished.
+    The marker is each pipeline's own final artifact (POC vs F2F), so the two
+    entrypoints stay independent even though they share the transaction folder.
+    """
+    return (_outputs_dir() / transaction_id / filename).is_file()
+
+
 def build_result_store(transaction_id: str) -> ResultStore:
     return ResultStore(
         _outputs_dir(),

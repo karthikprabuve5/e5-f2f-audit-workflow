@@ -31,7 +31,9 @@ class AgentName(StrEnum):
     SURGICAL_NOTE = "surgical_note"
 
 
-# Classification signals that switch the conditional agents on.
+# Classification categories used across the pipelines.
+CATEGORY_POC_485 = "poc_485"  # the CMS-485 plan-of-care segment in a POC document
+SUBCATEGORY_POC_485 = "2.1"  # Home Health Certification — Initial (CMS-485)
 CATEGORY_TELEHEALTH = "telehealth_encounter"
 CATEGORY_OPERATIVE = "operative_procedural_notes"
 TELEHEALTH_NOTE_FLAG = "TELEHEALTH"
