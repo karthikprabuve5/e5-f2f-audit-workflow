@@ -4,11 +4,11 @@
 described once in ``AGENT_SPECS``. Because an agent's name (``AgentName``) equals
 its skill folder, most fields are derived by convention:
 
-    skill_dir           = ``skills/<name>``
-    prompt_filename     = ``<name>_system_prompt.md``
+    skill_dir           = ``/skills/<name>/`` (source dir; the skill lives in ``/skills/<name>/<name>/``)
+    prompt_filename     = ``<name>-system-prompt.md``
     state_output_path   = ``/workspace/documents/outputs/<name>/results.json``
 
-Every field is derived from the name; the only override is ``poc_485_extraction``
+Every field is derived from the name; the only override is ``poc-485-extraction``
 writing ``anchors.json`` instead of ``results.json``.
 
 A fresh deep agent is created per run so its filesystem state is isolated. The
@@ -41,7 +41,7 @@ POC_DOCUMENT_PATH = "/workspace/documents/POC.md"
 SKILLS_ROUTE = "/skills/"
 
 _OUTPUT_ROOT = "/workspace/documents/outputs"
-_PROMPT_SUFFIX = "_system_prompt.md"
+_PROMPT_SUFFIX = "-system-prompt.md"
 _DEFAULT_OUTPUT_FILENAME = "results.json"
 
 
@@ -83,12 +83,12 @@ def _spec(
 ) -> AgentSpec:
     """Build a spec, deriving skill/prompt/output paths and instruction from the name.
 
-    ``output_filename`` is overridable for ``poc_485_extraction``, the only agent
+    ``output_filename`` is overridable for ``poc-485-extraction``, the only agent
     that does not write ``results.json``.
     """
     return AgentSpec(
         prompt_filename=f"{agent}{_PROMPT_SUFFIX}",
-        skill_dir=f"skills/{agent}",
+        skill_dir=f"/skills/{agent}/",
         input_document_path=document_path,
         state_output_path=f"{_OUTPUT_ROOT}/{agent}/{output_filename}",
         instruction=AGENT_INSTRUCTIONS[agent],

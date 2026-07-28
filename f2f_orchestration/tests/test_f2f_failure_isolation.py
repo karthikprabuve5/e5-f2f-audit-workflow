@@ -31,9 +31,9 @@ def test_exception_result_is_recorded_as_failed_not_stored() -> None:
 
     # Assert — failure captured, success stored; the exception is never persisted
     assert summary["failed"] == {"homebound": {"error_type": "RuntimeError", "message": "boom"}}
-    assert summary["succeeded"] == ["primary_diagnosis"]
+    assert summary["succeeded"] == ["primary-diagnosis"]
     assert "homebound" not in store.stored
-    assert store.stored["primary_diagnosis"] == {"ok": True}
+    assert store.stored["primary-diagnosis"] == {"ok": True, "encounter_index": 1}
 
 
 def test_cancelled_error_is_treated_as_failure_not_success() -> None:

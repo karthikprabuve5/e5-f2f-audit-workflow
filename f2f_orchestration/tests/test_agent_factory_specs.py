@@ -13,8 +13,8 @@ def test_every_agent_has_a_spec_and_an_instruction() -> None:
 
 def test_specs_derive_prompt_skill_and_output_from_the_name() -> None:
     for name, spec in AGENT_SPECS.items():
-        assert spec.prompt_filename == f"{name}_system_prompt.md"
-        assert spec.skill_dir == f"skills/{name}"
+        assert spec.prompt_filename == f"{name}-system-prompt.md"
+        assert spec.skill_dir == f"/skills/{name}/"
         assert spec.state_output_path.startswith(f"/workspace/documents/outputs/{name}/")
         assert spec.instruction == AGENT_INSTRUCTIONS[name]
 

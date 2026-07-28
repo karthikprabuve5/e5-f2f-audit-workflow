@@ -220,3 +220,5 @@ __marimo__/
 
 ocr-markdown/*
 outputs/*
+outputs-*/
+ocr-markdown-*/
