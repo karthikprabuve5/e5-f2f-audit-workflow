@@ -43,7 +43,7 @@ async def _run_one(
     poc_content = document_source.load(transaction_id, DocumentKind.POC)
     result_store = bootstrap.build_result_store(transaction_id)
     anchors = await pipeline.run(
-        transaction_id=transaction_id,
+        transaction_id=f"{transaction_id}_run2",
         poc_document_content=poc_content,
         client_name=bootstrap.client_name(),
         result_store=result_store,

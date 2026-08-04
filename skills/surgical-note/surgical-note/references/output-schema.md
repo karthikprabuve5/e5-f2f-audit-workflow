@@ -14,20 +14,18 @@
   "result": {
     "note_type": "post_op_note",
     "note_type_valid": true,
+    "note_type_evidence_refs": ["E001"],
     "surgical_procedure": {
       "raw": "Right total knee arthroplasty",
-      "page": 1,
-      "not_found": false
+      "not_found": false,
+      "evidence_refs": ["E003"]
     },
     "setting_type": "hospital_or",
     "hh_relevant_content": {
       "found": true,
       "items": [
         {
-          "verbiage": "Patient will require home PT 3x/week for gait training and wound care daily",
-          "page": 2,
-          "line_start": 45,
-          "line_end": 45
+          "evidence_refs": ["E002"]
         }
       ]
     },
@@ -44,6 +42,7 @@
   "evidence": [
     {
       "evidence_id": "E001",
+      "field": "note_type",
       "verbiage": "Post-Operative Day 2 — Patient recovering well. Wound intact.",
       "page": 1,
       "line_start": 3,
@@ -55,6 +54,7 @@
     },
     {
       "evidence_id": "E002",
+      "field": "hh_relevant_content",
       "verbiage": "Patient will require home PT 3x/week for gait training and wound care daily",
       "page": 2,
       "line_start": 45,
@@ -62,6 +62,18 @@
       "section": "Plan",
       "context": "HH-relevant content — skilled PT and wound care ordered",
       "criterion_matched": "SN_HH_CONTENT",
+      "signal_strength": "STRONG"
+    },
+    {
+      "evidence_id": "E003",
+      "field": "surgical_procedure",
+      "verbiage": "Procedure: Right total knee arthroplasty",
+      "page": 1,
+      "line_start": 5,
+      "line_end": 5,
+      "section": "Header",
+      "context": "Surgical procedure performed",
+      "criterion_matched": "SN_NOTE_TYPE",
       "signal_strength": "STRONG"
     }
   ],
@@ -87,22 +99,7 @@
   "reasoning": {
     "status": "ADEQUATE",
     "summary": "Post-operative note documents clinical encounter with specific skilled PT and wound care requirements supporting HH certification.",
-    "sources": [
-      {
-        "evidence_id": "E001",
-        "page": 1,
-        "line_start": 3,
-        "line_end": 3,
-        "description": "Note type — post-operative assessment"
-      },
-      {
-        "evidence_id": "E002",
-        "page": 2,
-        "line_start": 45,
-        "line_end": 45,
-        "description": "HH-relevant content — PT and wound care"
-      }
-    ],
+    "evidence_refs": ["E001", "E002", "E003"],
     "missing": null,
     "agency_warnings": []
   }
@@ -122,11 +119,13 @@
 | `confidence` | float | 0.0 – 1.0; must align with status — see Confidence Bands |
 | `result.note_type` | enum | `pre_op_note` / `operative_note` / `post_op_note` / `anesthesia_note` / `surgical_consult` / `discharge_summary` / `unknown` |
 | `result.note_type_valid` | boolean | `true` for `post_op_note` / `surgical_consult` / `discharge_summary`; CONDITIONAL for `pre_op_note` and `operative_note` (depends on HH content present); `false` for `anesthesia_note` |
+| `result.note_type_evidence_refs` | string[] | evidence_ids grounding the note-type determination; `[]` if `unknown` |
 | `result.surgical_procedure.raw` | string \| null | verbatim procedure name; `null` if not found |
 | `result.surgical_procedure.not_found` | boolean | `true` if no procedure name found |
+| `result.surgical_procedure.evidence_refs` | string[] | evidence_ids grounding the procedure; `[]` if `not_found` |
 | `result.setting_type` | enum | `hospital_or` / `asc` / `hospital_outpatient` / `physician_office` / `unknown` |
 | `result.hh_relevant_content.found` | boolean | `true` if ANY HH-related clinical content found |
-| `result.hh_relevant_content.items` | array | each item: `verbiage`, `page`, `line_start`, `line_end`; empty if not found |
+| `result.hh_relevant_content.items` | array | each item: `evidence_refs` only (verbiage/page/line live in `evidence[]`); empty if not found |
 | `result.f2f_adequate` | boolean | `true` only when note_type_valid AND hh content found AND content not weak |
 | `result.flags.anesthesia_only` | boolean | `true` if note_type is `anesthesia_note` |
 | `result.flags.operative_note_only` | boolean | `true` if operative note with no embedded clinical assessment |
@@ -135,6 +134,7 @@
 | `result.flags.hh_content_weak` | boolean | `true` if HH content found but vague/conclusory |
 | `result.flags.discharge_summary_hh_referenced` | boolean | `true` if discharge summary explicitly names HH services |
 | `evidence[].evidence_id` | string | unique ID starting E001; used for cross-referencing |
+| `evidence[].field` | string | result path this evidence primarily documents (e.g. `note_type`, `hh_relevant_content`, `surgical_procedure`) |
 | `evidence[].verbiage` | string | exact copy from markdown — never paraphrase |
 | `evidence[].page` | integer | from nearest preceding `### Page N` marker |
 | `evidence[].line_start` | integer | document-level line number |
@@ -157,13 +157,18 @@
 | `rules_applied.client[].negative_finding` | string \| null | what was looked for but not found; null if PASSED |
 | `reasoning.status` | enum | same as top-level `status` |
 | `reasoning.summary` | string | clinical findings only; no PII; no inline references; 1-2 sentences |
-| `reasoning.sources[].evidence_id` | string | links source to evidence array |
-| `reasoning.sources[].page` | integer | page number |
-| `reasoning.sources[].line_start` | integer | document-level line number |
-| `reasoning.sources[].line_end` | integer | document-level line number |
-| `reasoning.sources[].description` | string | what this source represents |
+| `reasoning.evidence_refs` | string[] | evidence_ids cited by the summary (replaces the old `sources` objects) |
 | `reasoning.missing` | string \| null | `null` if ADEQUATE; gap description if INADEQUATE or PARTIAL |
 | `reasoning.agency_warnings` | array | EXTEND failures and blocked directives; empty if none |
+
+## Evidence & Traceability
+
+`evidence[]` is the **single source of truth** for all location data. Every entry carries the exact `verbiage`, `page`, `line_start`, `line_end`, and `section`. Everything else references it by `evidence_id` — no other section repeats page/line/verbiage.
+
+- **Documented result values** (`note_type` via `note_type_evidence_refs`, `surgical_procedure`, `hh_relevant_content.items[]`) MUST carry `evidence_refs` pointing at real `evidence[]` entries.
+- **Absent / not-found / derived** values carry `evidence_refs: []` — there is no text to cite (`setting_type`, `note_type_valid`, `f2f_adequate`, and all `flags.*` are derived; rely on `rules_applied.*.negative_finding`).
+- **Reuse `evidence_id`s**: when several values are grounded by the same quote, all reference the same `E00x`; do not mint a new entry per field.
+- Every `E00x` referenced anywhere MUST exist in `evidence[]` (no dangling refs). Inline `page`/`line`/`verbiage` on result values has been removed — resolve location through `evidence_refs`.
 
 ## Confidence Bands
 

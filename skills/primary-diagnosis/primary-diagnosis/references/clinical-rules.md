@@ -36,6 +36,18 @@ A primary diagnosis determination is **MET** only when the F2F note satisfies
 Set `result.pathways_met` to the codes of all satisfied pathways: `A`, `B`, `C`.
 Set `result.medical_necessity_met` = true only if at least one pathway is satisfied.
 
+**Evidence recording (per pathway).** Record `rules_applied.clinical` as an object with
+`summary`, `evidence_refs`, and `pathways[]`:
+- `summary` — findings-level summary of medical necessity; **do not name pathways**
+  ("Pathway A/C met") — describe the clinical findings themselves.
+- `evidence_refs` — the union of every satisfied pathway's evidence ids.
+- `pathways[]` — one entry per pathway A/B/C, each tagged with `pathway: "A"|"B"|"C"`.
+  A satisfied pathway (`PASSED`) cites its own **distinct** `evidence[]` quote for that
+  pathway's specific F2F language (exacerbation / functional decline for A, new or changed
+  medication for B, explicit skilled order / safety risk for C) — do not reuse the
+  diagnosis evidence (E001). An unsatisfied pathway (`NOT_TRIGGERED`) carries
+  `evidence_refs: []` and a `negative_finding` noting it was searched but not found.
+
 ## CR_MET_SIGNALS — Signal Language — MET Indicators
 <!-- cms_section_id: CR_MET_SIGNALS -->
 <!-- element_type: ILLUSTRATION -->

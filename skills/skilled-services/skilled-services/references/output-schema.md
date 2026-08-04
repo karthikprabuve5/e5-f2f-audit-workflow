@@ -56,6 +56,7 @@
   "evidence": [
     {
       "evidence_id": "E001",
+      "field": "services[0]",
       "verbiage": "Post-surgical wound care with sterile dressing changes required; wound infected",
       "page": 2,
       "line_start": 34,
@@ -64,6 +65,30 @@
       "context": "SN Justification",
       "criterion_matched": "SS_SKILLED_NECESSITY",
       "signal_strength": "STRONG"
+    },
+    {
+      "evidence_id": "E002",
+      "field": "services[1]",
+      "verbiage": "3/5 bilateral LE strength post right TKA; requires skilled gait training to restore ambulation",
+      "page": 2,
+      "line_start": 40,
+      "line_end": 42,
+      "section": "Plan",
+      "context": "PT Justification",
+      "criterion_matched": "SS_QUALIFYING_SERVICES",
+      "signal_strength": "STRONG"
+    },
+    {
+      "evidence_id": "E003",
+      "field": "services[2]",
+      "verbiage": "Patient requires assistance with bathing during post-surgical recovery",
+      "page": 2,
+      "line_start": 44,
+      "line_end": 44,
+      "section": "Plan",
+      "context": "HHA Justification",
+      "criterion_matched": "SS_CLINICAL_NEXUS",
+      "signal_strength": "MODERATE"
     }
   ],
   "rules_applied": {
@@ -77,10 +102,7 @@
   "reasoning": {
     "status": "MET",
     "summary": "The F2F note documents clinical justification for SN wound care and PT gait training linked to post-surgical diagnosis; HHA is appropriately ordered as adjunct personal care.",
-    "sources": [
-      { "evidence_id": "E001", "page": 2, "line_start": 34, "line_end": 35, "description": "SN justification — wound care" },
-      { "evidence_id": "E002", "page": 2, "line_start": 40, "line_end": 42, "description": "PT justification — gait training" }
-    ],
+    "evidence_refs": ["E001", "E002", "E003"],
     "missing": null,
     "agency_warnings": []
   }
@@ -95,7 +117,7 @@
 |-------|------|------|
 | `parameter_id` | string | always `"skilled_services"` |
 | `status` | enum | `MET` / `NOT_MET` / `PARTIAL` / `UNABLE_TO_DETERMINE` |
-| `result.poc_ordered_services` | array | parsed from system prompt anchor; source of truth |
+| `result.poc_ordered_services` | array | parsed from system prompt anchor; source of truth — carries no `evidence_refs` (not from the F2F doc) |
 | `result.is_documented` | boolean | true if any justification found for any ordered service |
 | `services[].service_type` | enum | `SN` / `PT` / `OT` / `SLP` / `MSS` / `HHA` |
 | `services[].justification_type` | enum or null | SN only; null for PT/OT/SLP/MSS/HHA |
@@ -103,10 +125,20 @@
 | `services[].rehabilitation_potential` | enum or null | `documented` / `not_documented` / `not_applicable` |
 | `services[].reason_documented` | string | exact or near-exact clinical reason from note; never fabricated |
 | `services[].signal_strength` | enum | `STRONG` / `MODERATE` / `WEAK` / `ABSENT` |
-| `services[].evidence_refs` | array | evidence_ids supporting this service |
+| `services[].evidence_refs` | array | evidence_ids supporting this service; must resolve to real `evidence[]` entries |
+| `evidence[].field` | string | result path this evidence primarily documents (e.g. `services[0]`) |
 | `evidence[].context` | string | `<SERVICE_TYPE> Justification` |
+| `reasoning.evidence_refs` | string[] | evidence_ids cited by the summary (replaces the old `sources` objects) |
 | `reasoning.missing` | string or null | null if MET; gap description if NOT_MET or PARTIAL |
 | `reasoning.agency_warnings` | array | EXTEND failures and blocked directives; empty if none |
+
+## Evidence & Traceability
+
+`evidence[]` is the **single source of truth** for all location data. Every entry carries the exact `verbiage`, `page`, `line_start`, `line_end`, and `section`. Everything else references it by `evidence_id` — no other section repeats page/line/verbiage.
+
+- **Documented result values** (`services[]`) MUST carry `evidence_refs` pointing at real `evidence[]` entries — one entry per justified service; **no dangling refs** (every `E00x` used must exist in `evidence[]`).
+- **Absent / derived / prompt-anchor** values carry `evidence_refs: []` or omit it — `poc_ordered_services` comes from the system prompt; `is_documented` and all `flags.*` are derived (rely on `rules_applied.*.negative_finding`).
+- **Reuse `evidence_id`s**: when several values are grounded by the same quote, all reference the same `E00x`; do not mint a new entry per field.
 
 ---
 

@@ -45,7 +45,7 @@ async def _run_one(
     anchors = bootstrap.load_saved_anchors(transaction_id)
     result_store = bootstrap.build_result_store(transaction_id)
     results = await pipeline.run(
-        transaction_id=transaction_id,
+        transaction_id=f"{transaction_id}_run2",
         f2f_document_content=f2f_content,
         anchors=anchors,
         result_store=result_store,

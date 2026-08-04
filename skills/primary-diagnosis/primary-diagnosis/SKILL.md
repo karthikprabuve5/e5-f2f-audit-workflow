@@ -143,9 +143,24 @@ Set `result.pathways_met` to the list of satisfied pathway codes (`A`, `B`, `C`)
 Set `result.medical_necessity_met` = true if at least one pathway is satisfied.
 If ONLY disqualifying language is present → `medical_necessity_met` = false.
 
-Record in `rules_applied.clinical`:
-`section_id: CR_NECESSITY_PATHWAYS` / `outcome` / `evidence_refs` / `detail` /
-`negative_finding` (which pathways were searched but not found; null if satisfied).
+Record `rules_applied.clinical` as an **object** — not a bare array:
+- `summary` — a plain-English findings summary of the medical-necessity picture.
+  Describe the actual clinical findings (exacerbation, weight gain, fall risk, skilled
+  orders, etc.). **Do NOT name pathways** ("Pathway A/C met") in the summary.
+- `evidence_refs` — the **union** of every `PASSED` pathway's evidence ids
+  (deduplicated); `NOT_TRIGGERED` pathways contribute nothing.
+- `pathways` — **one entry per pathway evaluated** (A, B, C), never lumped together:
+  - `section_id: CR_NECESSITY_PATHWAYS` / `pathway: "A" | "B" | "C"` / `outcome` /
+    `evidence_refs` / `detail` (one sentence) / `negative_finding`.
+  - Satisfied → `outcome: PASSED`, `negative_finding: null`, and `evidence_refs` pointing
+    to a **distinct** `evidence[]` entry that quotes THAT pathway's own F2F language
+    (Pathway A → exacerbation / functional-decline quote; Pathway B →
+    new/changed-medication quote; Pathway C → skilled-order / safety-risk quote). Do NOT
+    reuse the diagnosis evidence (E001) to justify a pathway — mint a new `evidence[]`
+    entry per pathway with `field: pathways_met`, `criterion_matched: CR_NECESSITY_PATHWAYS`,
+    and its own page/line/verbiage.
+  - Not satisfied → `outcome: NOT_TRIGGERED`, `evidence_refs: []`, and `negative_finding`
+    stating the pathway was searched but not found.
 
 **485 Alignment (`PD_POC_ALIGNMENT`):**
 Compare the F2F primary diagnosis against `poc_icd10_code` / `poc_description`
@@ -174,7 +189,7 @@ Never assign high confidence to a non-MET status.
 - One to two sentences maximum
 
 **Populate reasoning.sources** using evidence_ids cited in summary.
-**Populate rules_applied.clinical** for every clinical section evaluated (CR_NECESSITY_PATHWAYS).
+**Populate rules_applied.clinical** as an object: a pathway-free findings `summary`, `evidence_refs` (union of all PASSED pathway evidence), and `pathways[]` with one entry per pathway A/B/C (PASSED with its own distinct evidence, or NOT_TRIGGERED with `negative_finding`).
 **Populate rules_applied.client** for every directive evaluated.
 Return **only** the valid JSON object.
 Save to `/workspace/documents/outputs/primary-diagnosis/results.json`.

@@ -16,31 +16,31 @@
     "setting_type": "hospital",
     "facility_name": {
       "raw": "Houston Methodist Hospital",
-      "page": 1,
-      "not_found": false
+      "not_found": false,
+      "evidence_refs": ["E001"]
     },
     "admission_date": {
       "value": "2026-03-10",
       "raw": "03/10/2026",
-      "page": 1,
-      "not_found": false
+      "not_found": false,
+      "evidence_refs": ["E001"]
     },
     "discharge_date": {
       "value": "2026-03-23",
       "raw": "03/23/2026",
-      "page": 1,
-      "not_found": false
+      "not_found": false,
+      "evidence_refs": ["E002"]
     },
     "discharge_disposition": {
       "raw": "Discharge to home with home health services for wound care and PT",
       "direct_to_hh": true,
-      "page": 3,
-      "not_found": false
+      "not_found": false,
+      "evidence_refs": ["E002"]
     },
     "community_physician": {
       "raw": "Will be followed by Dr. Maria Santos, PCP",
-      "page": 3,
-      "not_found": false
+      "not_found": false,
+      "evidence_refs": ["E003"]
     },
     "flags": {
       "inpatient_flag": true,
@@ -57,6 +57,7 @@
   "evidence": [
     {
       "evidence_id": "E001",
+      "field": "admission_date",
       "verbiage": "Patient admitted to Houston Methodist Hospital on 03/10/2026",
       "page": 1,
       "line_start": 4,
@@ -65,6 +66,30 @@
       "context": "Inpatient setting — hospital admission confirmed",
       "criterion_matched": "IP_SETTING_TYPES",
       "signal_strength": "STRONG"
+    },
+    {
+      "evidence_id": "E002",
+      "field": "discharge_disposition",
+      "verbiage": "Discharge to home with home health services for wound care and PT on 03/23/2026",
+      "page": 3,
+      "line_start": 51,
+      "line_end": 52,
+      "section": "Discharge Plan",
+      "context": "Discharge date and disposition — direct to home health",
+      "criterion_matched": "IP_INPATIENT_EXCLUSION",
+      "signal_strength": "STRONG"
+    },
+    {
+      "evidence_id": "E003",
+      "field": "community_physician",
+      "verbiage": "Will be followed by Dr. Maria Santos, PCP",
+      "page": 3,
+      "line_start": 58,
+      "line_end": 58,
+      "section": "Discharge Plan",
+      "context": "Community follow-up physician named",
+      "criterion_matched": "IP_INPATIENT_EXCLUSION",
+      "signal_strength": "MODERATE"
     }
   ],
   "rules_applied": {
@@ -89,15 +114,7 @@
   "reasoning": {
     "status": "INPATIENT_DETECTED",
     "summary": "F2F encounter conducted in acute hospital setting with confirmed admission. Patient discharged directly to home health.",
-    "sources": [
-      {
-        "evidence_id": "E001",
-        "page": 1,
-        "line_start": 4,
-        "line_end": 4,
-        "description": "Hospital inpatient setting confirmed"
-      }
-    ],
+    "evidence_refs": ["E001", "E002", "E003"],
     "missing": null,
     "agency_warnings": []
   }
@@ -126,6 +143,7 @@
 | `result.discharge_disposition.direct_to_hh` | boolean | `true` if disposition references home health |
 | `result.community_physician.raw` | string \| null | verbatim follow-up physician text; `null` if not found |
 | `result.community_physician.not_found` | boolean | `true` if `direct_to_hh` true but no physician identified |
+| `result.<field>.evidence_refs` | string[] | evidence_ids grounding `facility_name` / `admission_date` / `discharge_date` / `discharge_disposition` / `community_physician`; `[]` when `not_found` (page/line live in `evidence[]`) |
 | `result.flags.inpatient_flag` | boolean | mirrors `result.inpatient_flag` |
 | `result.flags.observation_status_flagged` | boolean | `true` when setting_type is `hospital_observation` |
 | `result.flags.inpatient_status_unclear` | boolean | `true` when hospital detected but status not documented |
@@ -136,6 +154,7 @@
 | `result.flags.community_physician_absent` | boolean | `true` if direct_to_hh true and no follow-up physician named |
 | `result.flags.part_a_signal` | boolean | `true` if explicit Part A billing language found |
 | `evidence[].evidence_id` | string | unique ID starting E001; used for cross-referencing |
+| `evidence[].field` | string | result path this evidence primarily documents (e.g. `admission_date`, `community_physician`) |
 | `evidence[].verbiage` | string | exact copy from markdown — never paraphrase |
 | `evidence[].page` | integer | from nearest preceding `### Page N` marker |
 | `evidence[].line_start` | integer | document-level line number |
@@ -158,13 +177,18 @@
 | `rules_applied.client[].negative_finding` | string \| null | what was looked for but not found; null if PASSED |
 | `reasoning.status` | enum | same as top-level `status` |
 | `reasoning.summary` | string | findings only; no PII; no inline references; 1-2 sentences |
-| `reasoning.sources[].evidence_id` | string | links source to evidence array |
-| `reasoning.sources[].page` | integer | page number |
-| `reasoning.sources[].line_start` | integer | document-level line number |
-| `reasoning.sources[].line_end` | integer | document-level line number |
-| `reasoning.sources[].description` | string | what this source represents |
+| `reasoning.evidence_refs` | string[] | evidence_ids cited by the summary (replaces the old `sources` objects) |
 | `reasoning.missing` | string \| null | `null` if detected; gap description if PARTIAL |
 | `reasoning.agency_warnings` | array | EXTEND failures and blocked directives; empty if none |
+
+## Evidence & Traceability
+
+`evidence[]` is the **single source of truth** for all location data. Every entry carries the exact `verbiage`, `page`, `line_start`, `line_end`, and `section`. Everything else references it by `evidence_id` — no other section repeats page/line/verbiage.
+
+- **Documented result values** (`facility_name`, `admission_date`, `discharge_date`, `discharge_disposition`, `community_physician`) MUST carry `evidence_refs` pointing at real `evidence[]` entries.
+- **Absent / not-found / derived** values carry `evidence_refs: []` — there is no text to cite (`setting_type`, `inpatient_flag`, and all `flags.*` are derived; rely on `rules_applied.*.negative_finding`).
+- **Reuse `evidence_id`s**: when several values are grounded by the same quote, all reference the same `E00x`; do not mint a new entry per field.
+- Every `E00x` referenced anywhere MUST exist in `evidence[]` (no dangling refs). Inline `page` on result values has been removed — resolve location through `evidence_refs`.
 
 ## Confidence Bands
 

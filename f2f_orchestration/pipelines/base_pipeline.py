@@ -30,7 +30,7 @@ from botocore.exceptions import (
     ReadTimeoutError,
 )
 
-from ..agents.agent_factory import AgentFactory
+from ..agents.agent_factory import AgentFactory, AgentOutput
 from ..core.detection import AgentName
 from ..core.logging_setup import get_logger
 from ..core.tracing import LangfuseTracer
@@ -84,7 +84,7 @@ class BasePipeline:
         document_content: str,
         replacements: Mapping[str, str] | None = None,
         span_metadata: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> AgentOutput:
         """Run one agent with launch stagger, concurrency cap, retries, and a span.
 
         The Langfuse span is opened inside the current OpenTelemetry context, so
@@ -98,7 +98,7 @@ class BasePipeline:
                     run_name=str(agent_name), metadata=span_metadata
                 )
 
-                async def call() -> dict[str, Any]:
+                async def call() -> AgentOutput:
                     return await self._factory.run(
                         agent_name,
                         document_content=document_content,
@@ -123,10 +123,10 @@ class BasePipeline:
 
     async def _invoke_with_retries(
         self,
-        operation: Callable[[], Awaitable[dict[str, Any]]],
+        operation: Callable[[], Awaitable[AgentOutput]],
         *,
         agent_name: AgentName,
-    ) -> dict[str, Any]:
+    ) -> AgentOutput:
         """Invoke ``operation``, retrying transient/throttling failures with backoff."""
         attempt = 0
         while True:

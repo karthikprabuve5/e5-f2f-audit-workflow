@@ -51,18 +51,24 @@ class PocPipeline(BasePipeline):
                     document_content=poc_document_content,
                     span_metadata=span_metadata,
                 )
-                result_store.store_classification("poc", classification)
+                result_store.store_classification(
+                    "poc", classification.processed, raw=classification.raw
+                )
 
-                self._select_poc_encounter(classification, transaction_id)
+                self._select_poc_encounter(classification.processed, transaction_id)
 
                 extraction = await self._run_agent(
                     AgentName.POC_485_EXTRACTION,
                     document_content=poc_document_content,
                     span_metadata=span_metadata,
                 )
-                result_store.store_poc_extraction(extraction)
+                result_store.store_poc_extraction(
+                    extraction.processed, raw=extraction.raw
+                )
 
-                anchors = AnchorSet.from_poc_extraction(extraction, client_name=client_name)
+                anchors = AnchorSet.from_poc_extraction(
+                    extraction.processed, client_name=client_name
+                )
         finally:
             self._tracer.flush()
 

@@ -21,29 +21,29 @@
         "special_transport",
         "assistance_of_person",
         "medically_contraindicated"
-      ]
+      ],
+      "evidence_refs": ["E001"]
     },
     "prong_2": {
       "met": true,
       "normal_inability_met": true,
-      "considerable_effort_met": true
+      "considerable_effort_met": true,
+      "evidence_refs": ["E001"]
     },
     "allowable_absences_noted": false,
     "allowable_absences": [
       {
-        "verbiage": "exact text from markdown",
-        "page": 2,
-        "line_start": 30,
-        "line_end": 30,
         "absence_type": "MEDICAL",
         "is_allowable": true,
-        "reason": "Outpatient dialysis — allowable per MBPM Ch.7 §30.1.1"
+        "reason": "Outpatient dialysis — allowable per MBPM Ch.7 §30.1.1",
+        "evidence_refs": ["E002"]
       }
     ]
   },
   "evidence": [
     {
       "evidence_id": "E001",
+      "field": "prong_1",
       "verbiage": "exact text from markdown, character for character",
       "page": 2,
       "line_start": 45,
@@ -52,6 +52,18 @@
       "context": "Homebound Statement — Prong 1",
       "criterion_matched": "HB_CRITERIA_ONE",
       "signal_strength": "STRONG"
+    },
+    {
+      "evidence_id": "E002",
+      "field": "allowable_absences",
+      "verbiage": "exact absence text from markdown",
+      "page": 2,
+      "line_start": 30,
+      "line_end": 30,
+      "section": "Plan",
+      "context": "Allowable Absence — outpatient dialysis",
+      "criterion_matched": "HB_ALLOWABLE_ABSENCE",
+      "signal_strength": "MODERATE"
     }
   ],
   "rules_applied": {
@@ -79,15 +91,7 @@
   "reasoning": {
     "status": "MET",
     "summary": "Clinical findings support homebound status. Both prongs satisfied.",
-    "sources": [
-      {
-        "evidence_id": "E001",
-        "page": 2,
-        "line_start": 45,
-        "line_end": 46,
-        "description": "Prong 1 — assistive device need"
-      }
-    ],
+    "evidence_refs": ["E001", "E002"],
     "missing": null,
     "agency_warnings": []
   }
@@ -109,12 +113,16 @@
 | `result.prong_1.met` | boolean | true if ANY ONE Prong 1 sub-criterion present (OR logic) |
 | `result.prong_1.criteria_met` | string[] | sub-criteria that were found: device_needed / special_transport / assistance_of_person / medically_contraindicated |
 | `result.prong_1.criteria_evaluated` | string[] | all four sub-criteria always listed |
+| `result.prong_1.evidence_refs` | string[] | evidence_ids grounding Prong 1; `[]` if not met/absent |
 | `result.prong_2.met` | boolean | true only if BOTH Prong 2 sub-criteria present (AND logic) |
 | `result.prong_2.normal_inability_met` | boolean | true if normal inability to leave home documented |
 | `result.prong_2.considerable_effort_met` | boolean | true if considerable and taxing effort documented |
+| `result.prong_2.evidence_refs` | string[] | evidence_ids grounding Prong 2; `[]` if not met/absent |
 | `result.allowable_absences_noted` | boolean | true if any absence mentioned |
-| `result.allowable_absences` | array | empty if none; structure shown in JSON above |
+| `result.allowable_absences` | array | empty if none; each item: `absence_type`, `is_allowable`, `reason`, `evidence_refs` |
+| `result.allowable_absences[].evidence_refs` | string[] | evidence_ids for the absence text (verbiage/page/line live in `evidence[]`) |
 | `evidence[].evidence_id` | string | unique ID starting E001; used for cross-referencing |
+| `evidence[].field` | string | result path this evidence primarily documents (e.g. `prong_1`, `allowable_absences`) |
 | `evidence[].verbiage` | string | exact copy from markdown — never paraphrase |
 | `evidence[].page` | integer | from nearest preceding `### Page N` marker |
 | `evidence[].line_start` | integer | document-level line number |
@@ -137,13 +145,18 @@
 | `rules_applied.client[].negative_finding` | string \| null | what was looked for but not found; null if PASSED |
 | `reasoning.status` | enum | same as top-level `status` |
 | `reasoning.summary` | string | clinical findings only; no PII; no inline references; 1-2 sentences |
-| `reasoning.sources[].evidence_id` | string | links source to evidence array |
-| `reasoning.sources[].page` | integer | page number |
-| `reasoning.sources[].line_start` | integer | document-level line number |
-| `reasoning.sources[].line_end` | integer | document-level line number |
-| `reasoning.sources[].description` | string | what this source represents |
+| `reasoning.evidence_refs` | string[] | evidence_ids cited by the summary (replaces the old `sources` objects) |
 | `reasoning.missing` | string \| null | null if MET; gap description if NOT_MET or PARTIAL |
 | `reasoning.agency_warnings` | array | EXTEND failures and blocked directives; empty if none |
+
+## Evidence & Traceability
+
+`evidence[]` is the **single source of truth** for all location data. Every entry carries the exact `verbiage`, `page`, `line_start`, `line_end`, and `section`. Everything else references it by `evidence_id` — no other section repeats page/line/verbiage.
+
+- **Documented result values** (`prong_1`, `prong_2`, `allowable_absences[]`) MUST carry `evidence_refs` pointing at real `evidence[]` entries.
+- **Absent / not-met / derived** values carry `evidence_refs: []` — there is no text to cite (rely on `rules_applied.*.negative_finding`).
+- **Reuse `evidence_id`s**: when several values are grounded by the same quote, all reference the same `E00x`; do not mint a new entry per field.
+- Every `E00x` referenced anywhere MUST exist in `evidence[]` (no dangling refs). Inline `page`/`line`/`verbiage` on result values has been removed — resolve location through `evidence_refs`.
 
 ## Confidence Bands
 

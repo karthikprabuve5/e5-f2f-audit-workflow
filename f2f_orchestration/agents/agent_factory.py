@@ -14,7 +14,9 @@ writing ``anchors.json`` instead of ``results.json``.
 A fresh deep agent is created per run so its filesystem state is isolated. The
 factory renders the prompt (with anchor placeholders), injects the document
 content, invokes the agent with the caller-supplied config (Langfuse callbacks),
-and returns the parsed JSON the agent wrote to its state file.
+parses the JSON the agent wrote to its state file, and runs it through the
+post-processing :class:`SchemaValidator`. It returns an :class:`AgentOutput`
+bundling the raw output, the normalized output, and the validation result.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from deepagents.backends.utils import create_file_data
 from ..core.detection import AgentName
 from ..core.logging_setup import get_logger
 from ..core.models import ModelProvider
+from ..core.output_validator import SchemaValidator, ValidationResult
 from ..core.prompts import PromptRenderer
 
 logger = get_logger(__name__)
@@ -46,7 +49,32 @@ _DEFAULT_OUTPUT_FILENAME = "results.json"
 
 
 class AgentOutputError(RuntimeError):
-    """Raised when an agent did not produce parseable JSON at its output path."""
+    """Raised when an agent did not produce parseable JSON at its output path.
+
+    When the failure is unparseable content (not a missing file), ``raw_content``
+    carries the exact string the agent wrote, so callers can still persist it for
+    traceability before marking the run failed.
+    """
+
+    def __init__(self, message: str, *, raw_content: str | None = None) -> None:
+        super().__init__(message)
+        self.raw_content = raw_content
+
+
+@dataclass(frozen=True)
+class AgentOutput:
+    """The result of one agent run: raw output, normalized output, and validation.
+
+    ``raw`` is exactly what the agent emitted (post-JSON-parse, pre-normalization);
+    ``processed`` is the normalized copy the pipelines use and store as the
+    canonical result; ``validation`` is the quality signal also embedded inside
+    ``processed`` under its ``validation`` key.
+    """
+
+    agent: str
+    raw: dict[str, Any]
+    processed: dict[str, Any]
+    validation: ValidationResult
 
 
 # The human trigger message handed to each agent, all in one place. The system
@@ -131,10 +159,13 @@ class AgentFactory:
         model_provider: ModelProvider,
         prompt_renderer: PromptRenderer,
         skills_root: Path,
+        schema_validator: SchemaValidator | None = None,
     ) -> None:
         self._model_provider = model_provider
         self._prompt_renderer = prompt_renderer
         self._skills_root = skills_root
+        # Stateless post-processing collaborator; injectable for tests.
+        self._validator = schema_validator or SchemaValidator()
 
     async def run(
         self,
@@ -143,8 +174,8 @@ class AgentFactory:
         document_content: str,
         replacements: Mapping[str, str] | None = None,
         config: Mapping[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Render, build, invoke the agent, and return its parsed JSON output."""
+    ) -> AgentOutput:
+        """Render, build, invoke, validate, and return the agent's output bundle."""
         spec = self._spec_for(agent_name)
         system_prompt = self._prompt_renderer.render(spec.prompt_filename, replacements)
         agent = self._build_agent(spec, system_prompt)
@@ -182,10 +213,14 @@ class AgentFactory:
             )
         return spec
 
-    @staticmethod
     def _extract_output(
-        agent_name: AgentName, spec: AgentSpec, result: Mapping[str, Any]
-    ) -> dict[str, Any]:
+        self, agent_name: AgentName, spec: AgentSpec, result: Mapping[str, Any]
+    ) -> AgentOutput:
+        """Read the agent's state file, parse it, then normalize + validate it.
+
+        On unparseable content the raw string is attached to the raised error so
+        the pipeline can still persist it for traceability.
+        """
         files = result.get("files") or {}
         entry = files.get(spec.state_output_path)
         if entry is None:
@@ -195,8 +230,24 @@ class AgentFactory:
 
         content = entry.get("content") if isinstance(entry, Mapping) else entry
         try:
-            return json.loads(content)
+            raw_output = json.loads(content)
         except (TypeError, json.JSONDecodeError) as exc:
+            raw_text = content if isinstance(content, str) else None
             raise AgentOutputError(
-                f"Agent '{agent_name}' output at {spec.state_output_path} is not valid JSON."
+                f"Agent '{agent_name}' output at {spec.state_output_path} is not valid JSON.",
+                raw_content=raw_text,
             ) from exc
+
+        if not isinstance(raw_output, dict):
+            raise AgentOutputError(
+                f"Agent '{agent_name}' output at {spec.state_output_path} is not a JSON object.",
+                raw_content=content if isinstance(content, str) else None,
+            )
+
+        processed, validation = self._validator.validate(agent_name, raw_output)
+        return AgentOutput(
+            agent=str(agent_name),
+            raw=raw_output,
+            processed=processed,
+            validation=validation,
+        )

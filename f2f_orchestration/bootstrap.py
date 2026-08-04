@@ -21,6 +21,7 @@ from typing import cast
 from dotenv import load_dotenv
 
 from .agents.agent_factory import AgentFactory
+from .audit import DiskAuditSource
 from .core.anchors import AnchorSet
 from .core.document_source import DocumentKind, LocalDirectoryDocumentSource
 from .core.logging_setup import configure_logging, get_logger
@@ -111,6 +112,17 @@ def build_agent_factory(model_provider: ModelProvider) -> AgentFactory:
 
 def build_document_source() -> LocalDirectoryDocumentSource:
     return LocalDirectoryDocumentSource(_ocr_markdown_dir())
+
+
+def build_audit_source() -> DiskAuditSource:
+    """Disk-backed audit source over the same ``outputs/`` dir the pipelines write.
+
+    This is the source used by the standalone ``run_audit`` entrypoint. The
+    in-memory and framework-agnostic sources are constructed by their callers
+    (a live ``ResultStore`` / a plain mapping), so only the disk source needs
+    environment wiring here.
+    """
+    return DiskAuditSource(_outputs_dir())
 
 
 def output_exists(transaction_id: str, filename: str) -> bool:

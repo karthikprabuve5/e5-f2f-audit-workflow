@@ -20,9 +20,7 @@
       "date_type": "date_of_service",
       "date_label": "Date of Service",
       "confidence": "high",
-      "page": 1,
-      "line": 4,
-      "section": "Header",
+      "evidence_refs": ["E001"],
       "flags": {
         "ambiguous_format": false, "partial_date": false,
         "multiple_dates_conflict": false, "late_documentation": false,
@@ -37,7 +35,9 @@
           "name_format": "FNAME_LNAME",
           "display_name": "John Smith, MD",
           "signature_date": "2025-01-15", "signature_type": "electronic_verified",
-          "source": "plain_text", "role_label": null
+          "source": "plain_text", "role_label": null,
+          "is_conducting_provider": true,
+          "evidence_refs": ["E002"]
         }
       ],
       "flags": {
@@ -51,16 +51,19 @@
       "performed_by_raw": "Smith, John",
       "performed_by_format": "LNAME_FNAME",
       "performed_by_display_name": "John Smith, MD",
+      "performed_by_evidence_refs": ["E003"],
       "conducting_provider": {
         "name": "John Smith", "credentials": "MD",
         "name_format": "FNAME_LNAME",
         "display_name": "John Smith, MD",
         "provider_type": "physician_md_do", "is_allowed": true,
-        "identification_method": "performed_by_match", "confidence": "high"
+        "identification_method": "performed_by_match", "confidence": "high",
+        "evidence_refs": ["E002", "E003"]
       },
       "cosign": {
         "is_required": false, "required_reason": null,
         "cosign_found": false, "cosigner": null, "is_valid": null,
+        "evidence_refs": [],
         "flags": {
           "cosign_required_but_absent": false,
           "cosigner_not_allowed_type": false, "cosign_undated": false
@@ -79,16 +82,23 @@
   },
   "evidence": [
     {
-      "evidence_id": "E001", "verbiage": "01/15/2025",
+      "evidence_id": "E001", "field": "encounter_date", "verbiage": "01/15/2025",
       "page": 1, "line_start": 4, "line_end": 4, "section": "Header",
       "context": "Encounter Date — Date of Service",
       "criterion_matched": "ED_DATE_PRIORITY", "signal_strength": "STRONG"
     },
     {
-      "evidence_id": "E002",
+      "evidence_id": "E002", "field": "eligible_provider.conducting_provider",
       "verbiage": "Electronically signed by: John Smith, MD — 01/15/2025 14:32",
       "page": 3, "line_start": 42, "line_end": 42, "section": "Signature Block",
       "context": "Electronic Signature — conducting provider",
+      "criterion_matched": "EP_ELIGIBLE_PROVIDER", "signal_strength": "STRONG"
+    },
+    {
+      "evidence_id": "E003", "field": "eligible_provider.performed_by_raw",
+      "verbiage": "Performed By: Smith, John",
+      "page": 1, "line_start": 6, "line_end": 6, "section": "Header",
+      "context": "Performed By field — cross-matched to signer for conducting provider",
       "criterion_matched": "EP_ELIGIBLE_PROVIDER", "signal_strength": "STRONG"
     }
   ],
@@ -106,10 +116,7 @@
   "reasoning": {
     "status": "MET",
     "summary": "Encounter date 01/15/2025 from labeled DOS header. Conducting provider John Smith MD identified via electronic signature matched to Performed By; allowed under 2026 CMS rules.",
-    "sources": [
-      {"evidence_id": "E001", "page": 1, "line_start": 4, "line_end": 4},
-      {"evidence_id": "E002", "page": 3, "line_start": 42, "line_end": 42}
-    ],
+    "evidence_refs": ["E001", "E002", "E003"],
     "missing": null,
     "agency_warnings": []
   }
@@ -139,3 +146,31 @@
 | `provider_type` | Code from EP_ELIGIBLE_PROVIDER table |
 | `outcome` | `PASSED` / `FAILED` / `NOT_APPLICABLE` / `UNABLE_TO_DETERMINE` |
 | `confidence` (top-level) | Float 0.00–1.00 per threshold table in SKILL.md |
+| `evidence[].field` | Result path this evidence primarily documents (e.g. `encounter_date`, `eligible_provider.conducting_provider`) |
+| `evidence_refs` (on result values) | Array of `evidence_id`s that ground this value; `[]` when the value is absent/derived (see Evidence & Traceability) |
+| `signers[].is_conducting_provider` | `true` on the single signer selected as the conducting provider; `false` otherwise |
+| `performed_by_evidence_refs` | evidence_id(s) for the "Performed By"/"Author" field text; `[]` if the field is absent |
+| `conducting_provider.evidence_refs` | **All** signals used for this encounter's `identification_method` — see rule below |
+| `reasoning.evidence_refs` | Array of `evidence_id`s cited by the summary (replaces the old `sources` objects) |
+
+### Conducting provider is derived — cite every signal used
+
+The conducting provider is not read from one place; it is resolved by cross-matching the **Performed By** field against the **signature** block. `conducting_provider.evidence_refs` MUST list the actual signals used, per `identification_method`:
+
+| `identification_method` | `conducting_provider.evidence_refs` |
+|---|---|
+| `performed_by_match` | signature evidence **+** Performed By evidence (both) |
+| `single_electronic_signer` | signature evidence only |
+| role-based / MD-priority | the resolving signature evidence(s) |
+| physical/status fallback | Performed By evidence (+ whatever confirmed "signed") |
+
+The specific signer chosen is flagged with `is_conducting_provider: true` **and** shares its signature `evidence_id` with `conducting_provider.evidence_refs`, so the link is unambiguous.
+
+## Evidence & Traceability
+
+`evidence[]` is the **single source of truth** for all location data. Every entry carries the exact `verbiage`, `page`, `line_start`, `line_end`, and `section`. Everything else references it by `evidence_id` — no other section repeats page/line/verbiage.
+
+- **Documented result values** (`encounter_date`, `signature.signers[]`, `eligible_provider.conducting_provider`, `eligible_provider.cosign.cosigner` when found) MUST carry `evidence_refs` pointing at real `evidence[]` entries.
+- **Absent / not-found / derived** values carry `evidence_refs: []` — there is no text to cite (rely on `rules_applied.*.negative_finding`).
+- **Reuse `evidence_id`s**: when several values are grounded by the same quote, all reference the same `E00x`; do not mint a new entry per field.
+- Every `E00x` referenced anywhere MUST exist in `evidence[]` (no dangling refs). Inline `page`/`line` on result values has been removed — resolve location through `evidence_refs`.
