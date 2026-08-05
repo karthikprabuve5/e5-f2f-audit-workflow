@@ -15,6 +15,17 @@ output (normalized + validated) and a sibling ``-raw.json`` holding the exact
 agent output before normalization. The raw file is the audit trail; the processed
 file is what downstream consumes. Disk persistence is toggleable so production can
 rely on the returned dict (or a different sink) instead of the local filesystem.
+
+Alongside the processed tree, the in-memory results also carry:
+
+* ``raw``    — the pre-normalization agent output, mirroring the processed layout
+  (``classification``/``poc_485_extraction``/``encounters``). This lets an
+  in-process caller capture raw for its own sink (e.g. S3) without touching disk.
+* ``errors`` — normalized records of the *soft* failures the F2F pipeline isolates
+  (per-agent and per-encounter), derived from the run summary. Hard failures (a
+  raised exception) never reach the store; the caller catches those directly.
+
+Both keys are additive: existing consumers and the audit engine ignore them.
 """
 
 from __future__ import annotations
@@ -46,6 +57,12 @@ class ResultStore:
             "encounters": {},
             "summary": None,
             "audit_results": None,
+            "raw": {
+                "classification": {},
+                "poc_485_extraction": None,
+                "encounters": {},
+            },
+            "errors": [],
         }
 
     @property
@@ -61,6 +78,8 @@ class ResultStore:
             raise ValueError(f"document_kind must be 'f2f' or 'poc', got '{document_kind}'.")
 
         self._results["classification"][document_kind] = data
+        if raw is not None:
+            self._results["raw"]["classification"][document_kind] = raw
         path = Path(CLASSIFICATION_DIRNAME) / f"{document_kind}.json"
         self._write_raw(path, raw)
         return self._write(path, data)
@@ -70,6 +89,8 @@ class ResultStore:
     ) -> str:
         """Store the POC/485 anchor extraction result (processed + raw)."""
         self._results["poc_485_extraction"] = data
+        if raw is not None:
+            self._results["raw"]["poc_485_extraction"] = raw
         path = Path(POC_EXTRACTION_FILENAME)
         self._write_raw(path, raw)
         return self._write(path, data)
@@ -85,6 +106,9 @@ class ResultStore:
         """Store one agent's result for one encounter (processed + raw)."""
         encounter = self._results["encounters"].setdefault(encounter_index, {})
         encounter[agent_name] = data
+        if raw is not None:
+            raw_encounter = self._results["raw"]["encounters"].setdefault(encounter_index, {})
+            raw_encounter[agent_name] = raw
         path = Path(agent_name) / f"encounter_{encounter_index}-results.json"
         self._write_raw(path, raw)
         return self._write(path, data)
@@ -94,8 +118,13 @@ class ResultStore:
 
         Used when an encounter agent produced non-JSON output: there is no
         processed result to store, but the raw string is still captured so the
-        failure can be inspected.
+        failure can be inspected. The raw string is kept in memory (under the
+        ``raw`` tree) regardless of ``persist_to_disk`` so an in-process caller can
+        capture it even when disk mirroring is off.
         """
+        raw_encounter = self._results["raw"]["encounters"].setdefault(encounter_index, {})
+        raw_encounter[agent_name] = raw_text
+
         relative_path = Path(agent_name) / f"encounter_{encounter_index}-raw.json"
         relative_str = relative_path.as_posix()
         if not self._persist_to_disk:
@@ -108,8 +137,15 @@ class ResultStore:
         return relative_str
 
     def store_summary(self, data: dict[str, Any]) -> str:
-        """Store the consolidated run summary/manifest."""
+        """Store the consolidated run summary/manifest and derive ``errors``.
+
+        The summary already carries the pipeline's isolated (soft) failures per
+        encounter. We flatten them here into ``results['errors']`` so a caller can
+        branch on failures without re-parsing the nested roll-up. Hard failures are
+        not present here — they were raised out of the pipeline and caught upstream.
+        """
         self._results["summary"] = data
+        self._results["errors"] = _extract_errors(data)
         return self._write(Path(SUMMARY_FILENAME), data)
 
     def store_audit_results(self, data: dict[str, Any]) -> str:
@@ -141,6 +177,33 @@ class ResultStore:
         if raw is None:
             return
         self._write(_raw_sibling(processed_path), raw)
+
+
+_ENCOUNTER_LEVEL_FAILURE_KEY = "__encounter__"
+
+
+def _extract_errors(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    """Flatten a run summary's per-encounter ``failed`` maps into error records.
+
+    Each record is ``{encounter_index, agent, error_type, message}``. Encounter-level
+    failures (keyed ``__encounter__`` in the roll-up) are reported with ``agent`` set
+    to ``None`` so callers can distinguish a whole-encounter failure from a single
+    agent failure.
+    """
+    errors: list[dict[str, Any]] = []
+    for encounter in summary.get("encounters", []):
+        encounter_index = encounter.get("encounter_index")
+        for failed_key, detail in (encounter.get("failed") or {}).items():
+            agent = None if failed_key == _ENCOUNTER_LEVEL_FAILURE_KEY else failed_key
+            errors.append(
+                {
+                    "encounter_index": encounter_index,
+                    "agent": agent,
+                    "error_type": (detail or {}).get("error_type"),
+                    "message": (detail or {}).get("message"),
+                }
+            )
+    return errors
 
 
 def _raw_sibling(processed_path: Path) -> Path:

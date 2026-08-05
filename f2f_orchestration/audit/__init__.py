@@ -15,6 +15,7 @@ from .audit_engine import PARAMETER_ID, AuditEngine
 from .audit_source import AuditSource, DiskAuditSource
 from .evidence_resolver import EvidenceResolver
 from .key_builders import BUILDERS
+from .pipeline_payload import build_audit_payload
 from .transaction_outputs import TransactionOutputs
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "EvidenceResolver",
     "TransactionOutputs",
     "BUILDERS",
+    "build_audit_payload",
 ]
