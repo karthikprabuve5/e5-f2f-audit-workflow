@@ -24,7 +24,7 @@ from f2f_orchestration.core.output_validator import (
     SchemaValidator,
 )
 
-_SKILLS_ROOT = Path(__file__).resolve().parents[2] / "skills"
+_SKILLS_ROOT = Path(__file__).resolve().parents[1] / "skills"
 
 
 def _schema_doc(agent: AgentName) -> Path:
@@ -62,6 +62,65 @@ def test_envelope_missing_status_is_critical() -> None:
 
     assert result.critical is True
     assert result.schema_valid is False
+
+
+def _valid_selection_output() -> dict:
+    return {
+        "status": "SELECTED",
+        "result": {"best_encounter_index": 2, "decision": "SELECTED"},
+        "evidence": [],
+    }
+
+
+def test_selection_valid_output_passes() -> None:
+    validator = SchemaValidator()
+
+    processed, result = validator.validate(AgentName.ENCOUNTER_SELECTION, _valid_selection_output())
+
+    assert result.schema_valid is True
+    assert result.critical is False
+    assert processed["validation"] == result.as_dict()
+    # Selection is not an envelope: its result keys are left untouched.
+    assert set(processed["result"]) == {"best_encounter_index", "decision"}
+
+
+def test_selection_missing_status_is_critical() -> None:
+    validator = SchemaValidator()
+    raw = {"result": {"best_encounter_index": 1, "decision": "SELECTED"}}
+
+    _, result = validator.validate(AgentName.ENCOUNTER_SELECTION, raw)
+
+    assert result.critical is True
+    assert result.schema_valid is False
+
+
+def test_selection_missing_result_is_critical() -> None:
+    validator = SchemaValidator()
+
+    _, result = validator.validate(AgentName.ENCOUNTER_SELECTION, {"status": "SELECTED"})
+
+    assert result.critical is True
+
+
+def test_selection_missing_best_index_is_filled_and_flagged() -> None:
+    validator = SchemaValidator()
+    raw = {"status": "SELECTED", "result": {"decision": "SELECTED"}}
+
+    processed, result = validator.validate(AgentName.ENCOUNTER_SELECTION, raw)
+
+    assert processed["result"]["best_encounter_index"] is None
+    assert "result.best_encounter_index" in result.missing_keys
+    assert result.schema_valid is False
+
+
+def test_selection_unknown_decision_is_warning_not_critical() -> None:
+    validator = SchemaValidator()
+    raw = {"status": "SELECTED", "result": {"best_encounter_index": 0, "decision": "MAYBE"}}
+
+    _, result = validator.validate(AgentName.ENCOUNTER_SELECTION, raw)
+
+    assert result.critical is False
+    assert any("not one of" in warning for warning in result.warnings)
 
 
 def test_dangling_evidence_ref_is_critical() -> None:

@@ -19,19 +19,20 @@ from . import bootstrap
 from .bootstrap import RunMode
 from .core.document_source import DocumentKind, DocumentSource
 from .core.logging_setup import get_logger
-from .core.result_store import POC_EXTRACTION_FILENAME
+from .core.result_store import POC_EXTRACTION_RESULT_MARKER
 from .pipelines.poc_pipeline import PocPipeline
 
 logger = get_logger(__name__)
 
 # ---- Run configuration (edit these) ----
-RUN_MODE: RunMode = RunMode.FULL
+RUN_MODE: RunMode = RunMode.SELECTED
 SELECTED_TRANSACTIONS: list[str] = [
 # "transaction_anzaldua_esther",
 # "transaction_fisk_rolana",
 # "transaction_brewer_judy",
 # "transaction_narvaez_jose_a",
 # "transaction_reeves_maudie",
+"transaction_kane_paula",
 ]
 # Re-run transactions even if their POC output already exists (overwrites it).
 FORCE_RERUN: bool = False
@@ -66,11 +67,11 @@ async def _run_batch(transaction_ids: list[str]) -> None:
     failed: dict[str, str] = {}
 
     for transaction_id in transaction_ids:
-        if not FORCE_RERUN and bootstrap.output_exists(transaction_id, POC_EXTRACTION_FILENAME):
+        if not FORCE_RERUN and bootstrap.output_exists(transaction_id, POC_EXTRACTION_RESULT_MARKER):
             skipped.append(transaction_id)
             logger.info(
                 "Transaction already processed, skipping",
-                extra={"transaction_id": transaction_id, "marker": POC_EXTRACTION_FILENAME},
+                extra={"transaction_id": transaction_id, "marker": POC_EXTRACTION_RESULT_MARKER},
             )
             continue
         try:

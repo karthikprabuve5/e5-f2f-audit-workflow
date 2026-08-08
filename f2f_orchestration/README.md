@@ -12,7 +12,7 @@ Langfuse tracing. Two pipelines share one agent factory and one tracing layer:
 
 ```
 run_poc.py  → PocPipeline:  classification(POC.md) → poc_485_extraction → anchors
-              (anchors saved to outputs/<transaction_id>/poc_485_extraction-results.json)
+              (anchors saved to outputs/<transaction_id>/poc_485_extraction/results.json)
 
 run_f2f.py  → reads the saved POC anchors from disk → F2fPipeline:
                 classification(F2F.md) → split encounters
@@ -105,7 +105,8 @@ per-encounter agent gets its own subfolder holding one file per encounter.
 ```
 outputs/
 └── <transaction_id>/
-    ├── poc_485_extraction-results.json               # anchor values (document-level)
+    ├── poc_485_extraction/
+    │   └── results.json                              # anchor values (document-level)
     ├── classification/
     │   ├── f2f.json                                  # F2F classification
     │   └── poc.json                                  # POC classification
@@ -123,6 +124,10 @@ outputs/
     │   └── encounter_<i>-results.json
     ├── surgical_note/                                # only operative encounters
     │   └── encounter_<i>-results.json
+    ├── merge-encounters/
+    │   └── results.json                              # consolidated merge_encounters contract
+    ├── encounter-selection/
+    │   └── results.json                              # best-encounter selection
     └── _summary-results.json                         # combined run manifest
 ```
 

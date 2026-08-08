@@ -6,9 +6,11 @@ each result to disk under::
 
     outputs/<transaction_id>/
       classification/{f2f.json, f2f-raw.json, poc.json, poc-raw.json}
-      poc_485_extraction-results.json, poc_485_extraction-raw.json
+      poc_485_extraction/{results.json, results-raw.json}
       <agent_name>/encounter_<i>-results.json, encounter_<i>-raw.json
       _summary-results.json
+      merge-encounters/results.json
+      encounter-selection/{results.json, results-raw.json}
 
 For every agent result the store writes two files: the canonical ``processed``
 output (normalized + validated) and a sibling ``-raw.json`` holding the exact
@@ -25,7 +27,7 @@ Alongside the processed tree, the in-memory results also carry:
   (per-agent and per-encounter), derived from the run summary. Hard failures (a
   raised exception) never reach the store; the caller catches those directly.
 
-Both keys are additive: existing consumers and the audit engine ignore them.
+Both keys are additive: existing consumers and the merge engine ignore them.
 """
 
 from __future__ import annotations
@@ -38,10 +40,26 @@ from .logging_setup import get_logger
 
 logger = get_logger(__name__)
 
-POC_EXTRACTION_FILENAME = "poc_485_extraction-results.json"
+POC_EXTRACTION_DIRNAME = "poc_485_extraction"
+POC_EXTRACTION_FILENAME = "results.json"
+# Skip-marker used by run_poc: outputs/<txn>/poc_485_extraction/results.json
+POC_EXTRACTION_RESULT_MARKER = f"{POC_EXTRACTION_DIRNAME}/{POC_EXTRACTION_FILENAME}"
 SUMMARY_FILENAME = "_summary-results.json"
-AUDIT_RESULTS_FILENAME = "audit-results.json"
+MERGE_ENCOUNTERS_DIRNAME = "merge-encounters"
+MERGE_ENCOUNTERS_FILENAME = "results.json"
+# Skip-marker used by run_merge_encounters / run_selection:
+# outputs/<txn>/merge-encounters/results.json
+MERGE_ENCOUNTERS_MARKER = f"{MERGE_ENCOUNTERS_DIRNAME}/{MERGE_ENCOUNTERS_FILENAME}"
 CLASSIFICATION_DIRNAME = "classification"
+CLASSIFICATION_F2F_FILENAME = "f2f.json"
+SELECTION_DIRNAME = "encounter-selection"
+SELECTION_FILENAME = "results.json"
+# Skip-marker used by the selection entrypoint: outputs/<txn>/encounter-selection/results.json
+SELECTION_RESULT_MARKER = f"{SELECTION_DIRNAME}/{SELECTION_FILENAME}"
+AUDIT_DIRNAME = "audit"
+AUDIT_FILENAME = "results.json"
+# Skip-marker used by run_audit: outputs/<txn>/audit/results.json
+AUDIT_MARKER = f"{AUDIT_DIRNAME}/{AUDIT_FILENAME}"
 
 
 class ResultStore:
@@ -56,11 +74,14 @@ class ResultStore:
             "poc_485_extraction": None,
             "encounters": {},
             "summary": None,
-            "audit_results": None,
+            "merge_encounters": None,
+            "selection": None,
+            "audit": None,
             "raw": {
                 "classification": {},
                 "poc_485_extraction": None,
                 "encounters": {},
+                "selection": None,
             },
             "errors": [],
         }
@@ -91,7 +112,7 @@ class ResultStore:
         self._results["poc_485_extraction"] = data
         if raw is not None:
             self._results["raw"]["poc_485_extraction"] = raw
-        path = Path(POC_EXTRACTION_FILENAME)
+        path = Path(POC_EXTRACTION_DIRNAME) / POC_EXTRACTION_FILENAME
         self._write_raw(path, raw)
         return self._write(path, data)
 
@@ -148,15 +169,42 @@ class ResultStore:
         self._results["errors"] = _extract_errors(data)
         return self._write(Path(SUMMARY_FILENAME), data)
 
-    def store_audit_results(self, data: dict[str, Any]) -> str:
-        """Store the consolidated ``audit-results`` contract for this transaction.
+    def store_merge_encounters(self, data: dict[str, Any]) -> str:
+        """Store the consolidated ``merge_encounters`` contract for this transaction.
 
-        Written at the transaction root (``outputs/<txn>/audit-results.json``) and
-        kept in the in-memory results map so an in-process caller can read it back
-        without touching disk.
+        Written under ``outputs/<txn>/merge-encounters/results.json`` and kept in the
+        in-memory results map so an in-process caller can read it back without
+        touching disk.
         """
-        self._results["audit_results"] = data
-        return self._write(Path(AUDIT_RESULTS_FILENAME), data)
+        self._results["merge_encounters"] = data
+        return self._write(Path(MERGE_ENCOUNTERS_DIRNAME) / MERGE_ENCOUNTERS_FILENAME, data)
+
+    def store_selection(
+        self, data: dict[str, Any], *, raw: dict[str, Any] | None = None
+    ) -> str:
+        """Store the transaction-level encounter-selection result (processed + raw).
+
+        Written under ``outputs/<txn>/encounter-selection/results.json`` with a
+        ``results-raw.json`` sibling, and kept in the in-memory results map (under
+        ``selection``) so an in-process/Temporal caller can read it back without
+        touching disk.
+        """
+        self._results["selection"] = data
+        if raw is not None:
+            self._results["raw"]["selection"] = raw
+        path = Path(SELECTION_DIRNAME) / SELECTION_FILENAME
+        self._write_raw(path, raw)
+        return self._write(path, data)
+
+    def store_audit(self, data: dict[str, Any]) -> str:
+        """Store the final ``audit`` contract for this transaction.
+
+        Written under ``outputs/<txn>/audit/results.json`` and kept in the in-memory
+        results map (under ``audit``) so an in-process/Temporal caller can read it
+        back without touching disk.
+        """
+        self._results["audit"] = data
+        return self._write(Path(AUDIT_DIRNAME) / AUDIT_FILENAME, data)
 
     def _write(self, relative_path: Path, data: dict[str, Any]) -> str:
         """Write ``data`` as JSON (when persisting) and return the relative path."""
@@ -211,7 +259,7 @@ def _raw_sibling(processed_path: Path) -> Path:
 
     ``encounter_1-results.json`` -> ``encounter_1-raw.json``
     ``f2f.json``                 -> ``f2f-raw.json``
-    ``poc_485_extraction-results.json`` -> ``poc_485_extraction-raw.json``
+    ``results.json``             -> ``results-raw.json``
     """
     stem = processed_path.stem
     base = stem[: -len("-results")] if stem.endswith("-results") else stem

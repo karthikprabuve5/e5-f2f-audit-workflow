@@ -1,4 +1,4 @@
-"""End-to-end smoke test for the library reuse path: POC -> F2F -> audit.
+"""End-to-end smoke test for the library reuse path: POC -> F2F -> merge.
 
 Drives the *real* ``PocPipeline`` and ``F2fPipeline`` (with their real splitter,
 normalizer, selector, and ``ResultStore``) but stubs the agent factory and tracer
@@ -7,7 +7,7 @@ chain an external package would use:
 
     PocPipeline.run -> AnchorSet + poc_store.results
     F2fPipeline.run -> f2f_store.results
-    build_audit_payload(...) -> TransactionOutputs.from_mapping -> AuditEngine.build
+    build_merge_encounters_payload(...) -> TransactionOutputs.from_mapping -> MergeEncountersEngine.build
 
 This is a wiring/contract test, not a model-quality test.
 """
@@ -20,8 +20,12 @@ from pathlib import Path
 from typing import Any
 
 from f2f_orchestration.agents.agent_factory import AgentOutput
-from f2f_orchestration.audit import AuditEngine, TransactionOutputs, build_audit_payload
-from f2f_orchestration.audit.key_builders import BUILDERS
+from f2f_orchestration.merge_encounters import (
+    MergeEncountersEngine,
+    TransactionOutputs,
+    build_merge_encounters_payload,
+)
+from f2f_orchestration.merge_encounters.key_builders import BUILDERS
 from f2f_orchestration.core.detection import AgentName
 from f2f_orchestration.core.output_validator import ValidationResult
 from f2f_orchestration.core.result_store import ResultStore
@@ -44,7 +48,7 @@ _BASE_AGENTS = (
 
 
 def _agent_envelope() -> dict[str, Any]:
-    """The minimal agent-output envelope the audit key builders accept."""
+    """The minimal agent-output envelope the merge key builders accept."""
     return {
         "status": "COMPLETE",
         "confidence": "high",
@@ -183,18 +187,18 @@ async def _orchestrate() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]
         result_store=f2f_store,
     )
 
-    payload = build_audit_payload(
+    payload = build_merge_encounters_payload(
         poc_store.results, f2f_store.results, transaction_id=_TXN, client_id=_CLIENT
     )
-    audit = AuditEngine().build(
+    merged = MergeEncountersEngine().build(
         TransactionOutputs.from_mapping(payload), generated_at=_GENERATED_AT
     )
-    return poc_store.results, f2f_store.results, audit
+    return poc_store.results, f2f_store.results, merged
 
 
-def test_end_to_end_poc_f2f_audit_chain() -> None:
+def test_end_to_end_poc_f2f_merge_chain() -> None:
     # Act
-    poc_results, f2f_results, audit = asyncio.run(_orchestrate())
+    poc_results, f2f_results, merged = asyncio.run(_orchestrate())
 
     # Assert — POC produced anchors + extraction, captured in memory
     assert poc_results["poc_485_extraction"]["result"]["primary_diagnosis"]["icd10_code"] == "I50.9"
@@ -206,17 +210,17 @@ def test_end_to_end_poc_f2f_audit_chain() -> None:
     # raw captured in memory alongside processed
     assert set(f2f_results["raw"]["encounters"][1]) == {agent.value for agent in _BASE_AGENTS}
 
-    # Assert — audit envelope is well-formed and complete
-    assert audit["parameter_id"] == "audit_results"
-    assert audit["transaction_id"] == _TXN
-    assert audit["client_id"] == _CLIENT
-    assert audit["generated_at"] == _GENERATED_AT
-    assert list(audit["results"].keys()) == [builder.key for builder in BUILDERS]
+    # Assert — merge envelope is well-formed and complete
+    assert merged["parameter_id"] == "merge_encounters"
+    assert merged["transaction_id"] == _TXN
+    assert merged["client_id"] == _CLIENT
+    assert merged["generated_at"] == _GENERATED_AT
+    assert list(merged["results"].keys()) == [builder.key for builder in BUILDERS]
     # every expected agent ran, so no gaps flagged
-    assert audit["data_quality"]["failed_agents"] == {}
+    assert merged["data_quality"]["failed_agents"] == {}
 
 
-def test_build_audit_payload_transposes_and_maps_keys() -> None:
+def test_build_merge_encounters_payload_transposes_and_maps_keys() -> None:
     # Arrange — shapes as the two stores would produce
     poc_results = {"transaction_id": _TXN, "poc_485_extraction": {"result": {}}}
     f2f_results = {
@@ -226,7 +230,7 @@ def test_build_audit_payload_transposes_and_maps_keys() -> None:
     }
 
     # Act
-    payload = build_audit_payload(poc_results, f2f_results, client_id=_CLIENT)
+    payload = build_merge_encounters_payload(poc_results, f2f_results, client_id=_CLIENT)
 
     # Assert — keys renamed and encounters transposed to {agent: {index: data}}
     assert payload["poc_extraction"] == {"result": {}}

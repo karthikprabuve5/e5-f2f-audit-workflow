@@ -37,6 +37,13 @@ logger = get_logger(__name__)
 
 SHAPE_ENVELOPE = "envelope"  # 7 F2F agents + poc-485-extraction
 SHAPE_CLASSIFICATION = "classification"
+SHAPE_SELECTION = "selection"  # transaction-level encounter-selection agent
+
+# The three decision states encounter-selection may emit; anything else is a
+# schema deviation (warned, not fatal).
+_SELECTION_DECISIONS: frozenset[str] = frozenset(
+    {"SELECTED", "NEEDS_HUMAN_REVIEW", "NO_ELIGIBLE_ENCOUNTER"}
+)
 
 # Top-level keys shared by every "envelope" agent. ``encounter_index`` is handled
 # separately (filled but not flagged) because it is pipeline-owned, and the
@@ -223,6 +230,10 @@ AGENT_SCHEMA_SPECS: dict[AgentName, AgentSchemaSpec] = {
         requires_encounter_index=True,
         evidence_item_keys=_EVIDENCE_KEYS_FIELD,
     ),
+    # Transaction-level selector: not an envelope. Validation is intentionally
+    # light — it checks only the fields downstream routes on, and never forces the
+    # envelope result keys onto the selection-specific ``result`` block.
+    AgentName.ENCOUNTER_SELECTION: AgentSchemaSpec(shape=SHAPE_SELECTION),
 }
 
 
@@ -274,6 +285,8 @@ class SchemaValidator:
         processed = copy.deepcopy(raw_output)
         if spec.shape == SHAPE_CLASSIFICATION:
             self._validate_classification(processed, spec, result)
+        elif spec.shape == SHAPE_SELECTION:
+            self._validate_selection(processed, result)
         else:
             self._validate_envelope(agent_name, processed, spec, result)
 
@@ -435,6 +448,42 @@ class SchemaValidator:
                 AgentName.CLASSIFICATION,
                 result,
                 prefix=f"encounters[{position}].",
+            )
+
+    # --- Encounter selection (transaction-level) ----------------------------
+
+    def _validate_selection(self, output: dict[str, Any], result: ValidationResult) -> None:
+        """Light validation for the transaction-level selection output.
+
+        Checks only what downstream routes on — a top-level ``status``, a ``result``
+        object, a present ``best_encounter_index``, and a valid ``decision`` — without
+        imposing the envelope ``result`` keys on the selection-specific shape.
+        """
+        if not output.get("status"):
+            result.critical = True
+            result.warnings.append("`status` missing.")
+
+        selection_result = output.get("result")
+        if not isinstance(selection_result, dict):
+            output["result"] = {} if selection_result is None else selection_result
+            result.critical = True
+            result.warnings.append("`result` missing or not an object.")
+            return
+
+        # ``best_encounter_index`` may be null only for NO_ELIGIBLE_ENCOUNTER, but the
+        # key must exist so downstream can read it uniformly.
+        if "best_encounter_index" not in selection_result:
+            selection_result["best_encounter_index"] = None
+            result.missing_keys.append("result.best_encounter_index")
+            result.repaired_keys.append("result.best_encounter_index")
+
+        decision = selection_result.get("decision")
+        if not decision:
+            result.critical = True
+            result.warnings.append("`result.decision` missing.")
+        elif decision not in _SELECTION_DECISIONS:
+            result.warnings.append(
+                f"`result.decision` '{decision}' is not one of {sorted(_SELECTION_DECISIONS)}."
             )
 
     @staticmethod

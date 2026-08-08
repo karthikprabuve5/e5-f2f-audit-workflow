@@ -5,13 +5,18 @@ own Python layer (Temporal, Airflow, a service, a batch script — anything). It
 covers the full run flow, the exact in-memory contract you get back (**processed +
 raw + errors**), and **every failure case** with how to capture and handle it.
 
+> The core flow is three dicts (POC → F2F → merge). An **optional fourth stage**,
+> encounter selection, runs after the merge to pick the single best F2F encounter
+> from an already-validated `merge_encounters` plus a runtime `soc_date`. It is called
+> out separately wherever it applies (flow, contract, failures §5 Case J).
+
 > Companion doc: [`library-integration-guide.md`](./library-integration-guide.md)
 > covers imports, construction options, and packaging. This doc focuses on the
 > **orchestration contract and failure handling**.
 
 ---
 
-## 1. The run flow (three dicts)
+## 1. The run flow (three dicts + optional selection)
 
 ```
 POC.md ─▶ PocPipeline.run() ─▶ AnchorSet   (+ poc_store.results  = DICT 1)
@@ -19,14 +24,20 @@ POC.md ─▶ PocPipeline.run() ─▶ AnchorSet   (+ poc_store.results  = DICT 
                                    ▼ anchors
 F2F.md ─▶ F2fPipeline.run() ───────────────▶ f2f_store.results   = DICT 2
                                    │ raises only on hard failure; soft failures isolated
-                                   ▼ build_audit_payload(DICT 1, DICT 2)
-                            AuditEngine.build() ─▶ audit-results  = DICT 3
+                                   ▼ build_merge_encounters_payload(DICT 1, DICT 2)
+                            MergeEncountersEngine.build() ─▶ merge_encounters  = DICT 3
+                                   │ + runtime soc_date            [optional]
+                                   ▼ SelectionPipeline.run(merge_encounters, soc_date)
+                            AgentOutput.processed ─▶ selection     = DICT 4
 ```
 
 - **POC must run first** — F2F needs the `AnchorSet` POC returns.
 - **POC returns an `AnchorSet`**, not a dict; the POC *dict* is `poc_store.results`.
 - **F2F returns its dict** directly (same object as `f2f_store.results`).
-- **Audit is pure and sync**; the two pipelines are `async`.
+- **Merge is pure and sync**; the two pipelines are `async`.
+- **Selection is optional and runs last**; it is `async` (a deep-agent pipeline like
+  POC/F2F, not pure) and returns an `AgentOutput` — DICT 4 is `.processed`. It needs
+  a runtime `soc_date` (and `client_name`).
 
 ---
 
@@ -42,13 +53,15 @@ Every `ResultStore` is **per-transaction**. `store.results` always has this shap
   "poc_485_extraction":  {...} | None,                   # processed
   "encounters":          {1: {"encounter-identity": {...}, "homebound": {...}}, 2: {...}},  # processed
   "summary":             {...} | None,                   # F2F run manifest + failure roll-up
-  "audit_results":       {...} | None,                   # only if you call store_audit_results()
+  "merge_encounters":    {...} | None,                   # only if you call store_merge_encounters()
+  "selection":           {...} | None,                   # only if you call store_selection() (DICT 4)
 
-  # ── additive capture (safe to ignore; audit engine ignores these) ──
+  # ── additive capture (safe to ignore; merge engine ignores these) ──
   "raw": {
     "classification":     {"f2f": {...}, "poc": {...}},  # pre-normalization agent output
     "poc_485_extraction": {...} | None,
     "encounters":         {1: {"encounter-identity": {...}}, ...},  # incl. unparseable raw strings
+    "selection":          {...} | None,                  # raw selection agent output
   },
   "errors": [                                            # SOFT failures only (see §4)
     {"encounter_index": 3, "agent": "homebound", "error_type": "AgentOutputError", "message": "..."},
@@ -65,7 +78,7 @@ Notes:
   **whole-encounter** failure; otherwise it's a single agent failure.
 - With two separate stores (recommended), `poc_store.results` fills the POC keys
   and `f2f_store.results` fills the F2F keys — neither is "complete" alone, which is
-  why the audit adapter merges them (§3).
+  why the merge adapter combines them (§3).
 
 ---
 
@@ -80,15 +93,20 @@ from f2f_orchestration import bootstrap
 from f2f_orchestration.core.result_store import ResultStore
 from f2f_orchestration.pipelines.poc_pipeline import POCClassificationError
 from f2f_orchestration.agents.agent_factory import AgentOutputError
-from f2f_orchestration.audit import AuditEngine, TransactionOutputs, build_audit_payload
+from f2f_orchestration.merge_encounters import (
+    MergeEncountersEngine,
+    TransactionOutputs,
+    build_merge_encounters_payload,
+)
 
 _IN_MEMORY = Path("unused-when-not-persisting")
 
 
-async def orchestrate_one(transaction_id, poc_md, f2f_md):
+async def orchestrate_one(transaction_id, poc_md, f2f_md, soc_date=None):
     bootstrap.load_environment()
     poc_pipeline = bootstrap.build_poc_pipeline()
     f2f_pipeline = bootstrap.build_f2f_pipeline()
+    selection_pipeline = bootstrap.build_selection_pipeline()   # optional Step 4
     client = bootstrap.client_name()
 
     # 1) POC (hard failures raise — see §4)
@@ -106,17 +124,27 @@ async def orchestrate_one(transaction_id, poc_md, f2f_md):
         anchors=anchors, result_store=f2f_store,
     )                                        # DICT 2  (processed + raw + errors)
 
-    # 3) Audit (pure)
-    payload = build_audit_payload(poc_results, f2f_results,
-                                  transaction_id=transaction_id, client_id=client)
-    audit = AuditEngine().build(TransactionOutputs.from_mapping(payload),
-                                generated_at=datetime.now(UTC).isoformat())
-    return poc_results, f2f_results, audit   # DICT 3
+    # 3) Merge encounters (pure)
+    payload = build_merge_encounters_payload(poc_results, f2f_results,
+                                             transaction_id=transaction_id, client_id=client)
+    merged = MergeEncountersEngine().build(TransactionOutputs.from_mapping(payload),
+                                           generated_at=datetime.now(UTC).isoformat())
+
+    # 4) Selection (optional; requires a runtime soc_date — see Case J)
+    selection = None
+    if soc_date:
+        selection_output = await selection_pipeline.run(
+            transaction_id=transaction_id, merge_encounters=merged,
+            soc_date=soc_date, client_name=client,
+        )
+        selection = selection_output.processed          # DICT 4 (+ .raw, .validation)
+
+    return poc_results, f2f_results, merged, selection    # DICT 3 (+ DICT 4)
 ```
 
-Push `poc_results`/`f2f_results` (including their `raw` subtrees) and `audit` to
-your own sink (S3) wherever you like — the library never touches disk when
-`persist_to_disk=False`.
+Push `poc_results`/`f2f_results` (including their `raw` subtrees), `merged`, and
+`selection` (with `selection_output.raw`) to your own sink (S3) wherever you like —
+the library never touches disk when `persist_to_disk=False`.
 
 ---
 
@@ -134,7 +162,8 @@ POC extraction, and F2F classification.
 | Exception | Raised by | Meaning |
 |---|---|---|
 | `POCClassificationError` | `PocPipeline` | POC has no `poc_485` / `2.1` encounter — not a plan of care |
-| `AgentOutputError` | `AgentFactory` (via POC/F2F classification or POC extraction) | agent wrote no output / non-JSON / non-object |
+| `AgentOutputError` | `AgentFactory` (via POC/F2F classification, POC extraction, or the selection agent) | agent wrote no output / non-JSON / non-object |
+| `ValueError` | `SelectionPipeline` (optional stage) | blank/absent `soc_date` or `client_name` — a caller precondition violation, fails fast before the agent runs |
 | `botocore.exceptions.ClientError`, `ReadTimeoutError`, `ConnectTimeoutError`, `EndpointConnectionError` | Bedrock, after retries exhausted | throttling/transient failure that outlived the retry budget |
 
 Import points:
@@ -169,7 +198,7 @@ The failing agent has **no entry** under `results["encounters"][i]`, and its raw
 - POC finds `poc_485`/`2.1`; F2F classifies and all selected agents succeed.
 - `poc_results["poc_485_extraction"]` filled; `f2f_results["encounters"]` filled;
   `f2f_results["errors"] == []`.
-- **Handling:** proceed to audit. `audit["data_quality"]["failed_agents"]` empty.
+- **Handling:** proceed to merge. `merged["data_quality"]["failed_agents"]` empty.
 
 ### Case B — POC is not a plan of care (no `poc_485`/`2.1`)
 
@@ -183,7 +212,7 @@ POCClassificationError: POC classification for 'transaction_x' has no
 ```
 
 - **Handling:** catch it, mark the transaction "skipped: not a plan of care", do not
-  attempt F2F or audit. This is a data condition, not a system fault — do **not** retry.
+  attempt F2F or merge. This is a data condition, not a system fault — do **not** retry.
 
 ### Case C — POC has zero encounters
 
@@ -209,8 +238,8 @@ POCClassificationError: POC classification for 'transaction_x' has no
 
 - The pipeline logs a warning and completes: `encounters == {}`, `summary` present
   with `encounter_count: 0`, `errors == []`.
-- **Handling:** treat as a soft anomaly — audit will build but
-  `data_quality.failed_agents` will be empty and there is simply nothing to audit.
+- **Handling:** treat as a soft anomaly — merge will build but
+  `data_quality.failed_agents` will be empty and there is simply nothing to merge.
   Flag for review; do not retry automatically.
 
 ### Case G — Some F2F agents fail (soft, isolated)
@@ -227,9 +256,9 @@ POCClassificationError: POC classification for 'transaction_x' has no
 ```
 
 - **Handling:** you decide policy per your SLA:
-  - **Proceed to audit anyway** — the audit engine records the gap in
-    `audit["data_quality"]["failed_agents"]` (a false PASS is never shown).
-  - **Targeted re-run** — re-run only the failed agents/encounters (see §6) before auditing.
+  - **Proceed to merge anyway** — the merge engine records the gap in
+    `merged["data_quality"]["failed_agents"]` (a false PASS is never shown).
+  - **Targeted re-run** — re-run only the failed agents/encounters (see §6) before merging.
 
 ### Case H — Whole encounter fails (soft)
 
@@ -237,12 +266,27 @@ POCClassificationError: POC classification for 'transaction_x' has no
   summary entry with `failed["__encounter__"]`. Other encounters are unaffected.
 - **Handling:** same options as Case G, scoped to the encounter.
 
-### Case I — Audit input problems
+### Case I — Merge input problems
 
 - `TransactionOutputs.from_mapping` raises `ValueError` if `transaction_id` is
   missing from the payload. A present-but-corrupt file (disk path) raises `ValueError`.
 - **Handling:** this is a programming/data-plumbing error in your adapter — fail
   loud, fix the payload; do not retry blindly.
+
+### Case J — Selection input / agent problems (optional stage)
+
+- **Missing `soc_date` / `client_name`** → `SelectionPipeline.run()` raises
+  `ValueError` **before** any agent runs. This is a caller precondition violation
+  (SOC is always provided at runtime). Fix the input; **do not retry blindly**.
+- **Selection agent hard-fails** → the selection agent is awaited directly (not in a
+  `gather`), so `AgentOutputError` (bad/no JSON) or an exhausted-retry Bedrock error
+  **raises out of `run()`**, exactly like classification. POC/F2F/merge outputs
+  remain valid, so retry only the selection step (see §6). Selection never mutates
+  the earlier dicts.
+- **Selection completes with a non-`SELECTED` decision** → not an exception. The
+  `result.decision` is `NEEDS_HUMAN_REVIEW` or `NO_ELIGIBLE_ENCOUNTER` (and
+  `best_encounter_index` may be `null`). Route per your compliance policy; the
+  validator flags any unexpected decision as a schema warning, not a failure.
 
 ---
 
@@ -254,12 +298,17 @@ POCClassificationError: POC classification for 'transaction_x' has no
 succeeded, skipped, failed = [], {}, {}
 for txn in transaction_ids:
     try:
-        poc_results, f2f_results, audit = await orchestrate_one(txn, poc_md, f2f_md)
+        poc_results, f2f_results, merged, selection = await orchestrate_one(
+            txn, poc_md, f2f_md, soc_date=soc_dates[txn]     # omit soc_date to skip Step 4
+        )
     except POCClassificationError as exc:
         skipped[txn] = f"not_a_plan_of_care: {exc}"          # Case B/C — do not retry
         continue
+    except ValueError as exc:
+        failed[txn] = f"bad_input: {exc}"                    # Case I/J — fix input, do not retry
+        continue
     except AgentOutputError as exc:
-        failed[txn] = f"agent_output: {exc}"                 # Case D/E — retry-once then review
+        failed[txn] = f"agent_output: {exc}"                 # Case D/E/J — retry-once then review
         continue
     except Exception as exc:                                  # Bedrock/unknown — see retry policy
         failed[txn] = f"{type(exc).__name__}: {exc}"
@@ -281,8 +330,10 @@ for txn in transaction_ids:
 | Situation | Retry? | Scope |
 |---|---|---|
 | Throttling / transient Bedrock (after internal retries already exhausted) | Yes, with backoff | Whole transaction, or F2F-only if POC succeeded |
-| `AgentOutputError` (model produced bad JSON) | Once (non-determinism), then manual review | The failing step |
+| `AgentOutputError` (model produced bad JSON) | Once (non-determinism), then manual review | The failing step (incl. selection, Case J) |
 | `POCClassificationError` / zero encounters | No | — (data condition) |
+| `ValueError` (bad merge payload / missing `soc_date` — Case I/J) | No | — (precondition; fix the input) |
+| Selection agent Bedrock/transient (Case J) | Yes, with backoff | Selection step only (merge already valid) |
 | Soft agent failures (Case G/H) | Optional, targeted | Re-run only the failed agent/encounter |
 
 > The pipeline already retries throttling/transient errors internally with
@@ -296,13 +347,13 @@ for txn in transaction_ids:
 - If POC succeeded, cache its `AnchorSet` (or `poc_485_extraction`) and re-run only
   F2F to avoid re-paying for POC.
 
-### Deciding PASS vs incomplete from the audit
+### Deciding PASS vs incomplete from the merge
 
-- After building the audit, inspect `audit["data_quality"]`:
+- After building the merge, inspect `merged["data_quality"]`:
   - `failed_agents` — expected agents that produced no output / critical validation,
     per encounter.
   - `schema_issues` — non-empty validation signals (missing/repaired/dangling).
-- Non-empty `data_quality` means the audit is built on **incomplete** data — gate
+- Non-empty `data_quality` means the merge is built on **incomplete** data — gate
   your downstream "PASS" on it per your compliance rules.
 
 ---
@@ -315,7 +366,7 @@ for txn in transaction_ids:
 - **No silent failures:** hard failures raise; soft failures are recorded in
   `errors` + `summary`. Do not add `except: pass` anywhere in your orchestration.
 - **Structured logging:** log transaction id, error type, and counts — not payloads.
-- **Determinism of audit:** `AuditEngine` reads no clock/env/IO; you inject
+- **Determinism of merge:** `MergeEncountersEngine` reads no clock/env/IO; you inject
   `generated_at`. Safe inside a Temporal activity.
 - **Concurrency:** the pipeline caps in-flight Bedrock calls globally
   (`MAX_CONCURRENT_AGENTS`). If you run many transactions concurrently in your
@@ -334,4 +385,6 @@ for txn in transaction_ids:
 | Soft failures (flattened) | `f2f_results["errors"]` |
 | Soft failures (detailed roll-up) | `f2f_results["summary"]["encounters"][i]["failed"]` |
 | Hard failure | caught exception from `run()` |
-| Final verdicts + gaps | `audit["results"]`, `audit["data_quality"]` |
+| Consolidated verdicts + gaps | `merged["results"]`, `merged["data_quality"]` |
+| Selected encounter (optional) | `selection["result"]["best_encounter_index"]`, `selection["result"]["decision"]` |
+| Selection raw | `selection_output.raw` |

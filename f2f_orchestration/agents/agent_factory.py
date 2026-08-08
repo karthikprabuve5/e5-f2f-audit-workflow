@@ -41,6 +41,8 @@ logger = get_logger(__name__)
 
 F2F_DOCUMENT_PATH = "/workspace/documents/F2F.md"
 POC_DOCUMENT_PATH = "/workspace/documents/POC.md"
+# encounter-selection consumes the consolidated merge_encounters, not a source doc.
+MERGE_ENCOUNTERS_DOCUMENT_PATH = "/workspace/documents/MERGE_ENCOUNTERS.json"
 SKILLS_ROUTE = "/skills/"
 
 _OUTPUT_ROOT = "/workspace/documents/outputs"
@@ -89,6 +91,7 @@ AGENT_INSTRUCTIONS: dict[AgentName, str] = {
     AgentName.INPATIENT_DETECTION: "Detect inpatient and observation setting context.",
     AgentName.TELEHEALTH_IDENTITY: "Extract the telehealth identity parameters.",
     AgentName.SURGICAL_NOTE: "Validate the surgical note for F2F adequacy.",
+    AgentName.ENCOUNTER_SELECTION: "Select the best F2F encounter for the claim.",
 }
 
 
@@ -147,6 +150,9 @@ AGENT_SPECS: dict[AgentName, AgentSpec] = {
         AgentName.TELEHEALTH_IDENTITY, document_path=F2F_DOCUMENT_PATH
     ),
     AgentName.SURGICAL_NOTE: _spec(AgentName.SURGICAL_NOTE, document_path=F2F_DOCUMENT_PATH),
+    AgentName.ENCOUNTER_SELECTION: _spec(
+        AgentName.ENCOUNTER_SELECTION, document_path=MERGE_ENCOUNTERS_DOCUMENT_PATH
+    ),
 }
 
 

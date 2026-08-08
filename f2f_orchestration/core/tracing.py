@@ -31,7 +31,7 @@ from .logging_setup import get_logger
 
 logger = get_logger(__name__)
 
-PipelineName = Literal["poc", "f2f"]
+PipelineName = Literal["poc", "f2f", "selection"]
 
 
 class LangfuseTracer:

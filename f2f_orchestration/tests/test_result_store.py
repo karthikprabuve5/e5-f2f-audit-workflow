@@ -26,6 +26,7 @@ def test_new_results_have_raw_and_errors_scaffold() -> None:
         "classification": {},
         "poc_485_extraction": None,
         "encounters": {},
+        "selection": None,
     }
     assert results["errors"] == []
 
@@ -52,6 +53,18 @@ def test_store_poc_extraction_captures_raw_in_memory() -> None:
     # Assert
     assert store.results["poc_485_extraction"] == {"processed": True}
     assert store.results["raw"]["poc_485_extraction"] == {"raw": True}
+
+
+def test_store_selection_captures_processed_and_raw_in_memory() -> None:
+    # Arrange
+    store = _store()
+
+    # Act
+    store.store_selection({"processed": True}, raw={"raw": True})
+
+    # Assert
+    assert store.results["selection"] == {"processed": True}
+    assert store.results["raw"]["selection"] == {"raw": True}
 
 
 def test_store_encounter_agent_captures_raw_per_encounter() -> None:

@@ -1,8 +1,8 @@
 # F2F Audit Workflow — Code-Level Flow
 
 End-to-end flow of the current codebase: how data enters, how agents process it,
-how raw is converted to processed `*-results.json`, and how the final
-`audit-results` is assembled. Class and method names match the source.
+how raw is converted to processed `*-results.json`, and how the consolidated
+`merge_encounters` is assembled. Class and method names match the source.
 
 ## 1. Class-level call flow
 
@@ -14,7 +14,7 @@ flowchart TD
         B3["build_result_store() -> ResultStore(persist_to_disk)"]
         B4["build_document_source() -> LocalDirectoryDocumentSource"]
         B5["build_agent_factory() -> AgentFactory"]
-        B6["build_audit_source() -> DiskAuditSource"]
+        B6["build_merge_source() -> DiskMergeSource"]
     end
 
     subgraph POC["PocPipeline.run(...) -> AnchorSet"]
@@ -64,15 +64,15 @@ flowchart TD
         S3["_write_raw() -> *-raw.json (disk mirror when persisting)"]
     end
 
-    subgraph AUDIT["Audit (pure)"]
-        D0["build_audit_payload(poc_results, f2f_results)  (in-memory path)"]
-        D1["DiskAuditSource.load() OR TransactionOutputs.from_mapping()"]
+    subgraph MERGE["Merge encounters (pure)"]
+        D0["build_merge_encounters_payload(poc_results, f2f_results)  (in-memory path)"]
+        D1["DiskMergeSource.load() OR TransactionOutputs.from_mapping()"]
         D2["TransactionOutputs{poc_extraction, classification_f2f, agents}"]
         D0 --> D1
-        D3["AuditEngine.build(outputs, generated_at)"]
+        D3["MergeEncountersEngine.build(outputs, generated_at)"]
         D4["for b in BUILDERS: b.build(outputs, EvidenceResolver)"]
         D5["_collect_data_quality() -> EncounterAgentSelector.select()"]
-        D6["audit-results dict -> ResultStore.store_audit_results()"]
+        D6["merge_encounters dict -> ResultStore.store_merge_encounters()"]
         D1 --> D2 --> D3 --> D4 --> D5 --> D6
     end
 
@@ -99,7 +99,7 @@ sequenceDiagram
     participant AF as AgentFactory
     participant SV as SchemaValidator
     participant RS as ResultStore
-    participant AE as AuditEngine
+    participant AE as MergeEncountersEngine
 
     Caller->>BS: build_*_pipeline(), build_result_store()
     Caller->>POC: run(poc_content, client_name, result_store)
@@ -123,8 +123,8 @@ sequenceDiagram
 
     Caller->>AE: build(TransactionOutputs.from_mapping(payload), generated_at)
     AE->>AE: BUILDERS[*].build() + EvidenceResolver + _collect_data_quality
-    AE-->>Caller: audit-results dict
-    Caller->>RS: store_audit_results(...)  (optional)
+    AE-->>Caller: merge_encounters dict
+    Caller->>RS: store_merge_encounters(...)  (optional)
 ```
 
 ## 3. Key classes and their one job
@@ -141,18 +141,18 @@ sequenceDiagram
 | `EncounterNormalizer` / `EncounterSplitter` | `core/` | repair page lines / cut per-encounter chunks |
 | `AnchorSet` | `core/anchors.py` | the 5 POC placeholders injected into F2F prompts |
 | `ResultStore` | `core/result_store.py` | in-memory `_results` (processed) + disk `*-results.json` / `*-raw.json` |
-| `TransactionOutputs` | `audit/transaction_outputs.py` | normalize outputs — `from_disk` or `from_mapping` |
-| `AuditEngine` | `audit/audit_engine.py` | pure: `BUILDERS` + `EvidenceResolver` + `data_quality` -> `audit-results` |
-| `DiskAuditSource` | `audit/audit_source.py` | batch loader wrapping `TransactionOutputs.from_disk` |
+| `TransactionOutputs` | `merge_encounters/transaction_outputs.py` | normalize outputs — `from_disk` or `from_mapping` |
+| `MergeEncountersEngine` | `merge_encounters/merge_engine.py` | pure: `BUILDERS` + `EvidenceResolver` + `data_quality` -> `merge_encounters` |
+| `DiskMergeSource` | `merge_encounters/merge_source.py` | batch loader wrapping `TransactionOutputs.from_disk` |
 
 ## 4. The two conversions
 
 | Conversion | Where | Result |
 |---|---|---|
 | raw -> results.json | `AgentFactory._extract_output` (`SchemaValidator.validate`) | `raw` (verbatim) + `processed` (normalized `-results.json`) |
-| results.json -> audit-results | `AuditEngine.build` via `TransactionOutputs` | consolidated `audit-results.json` (topics + inline evidence + data_quality) |
+| results.json -> merge_encounters | `MergeEncountersEngine.build` via `TransactionOutputs` | consolidated `merge-encounters/results.json` (topics + inline evidence + data_quality) |
 
 Note: `AgentOutput` holds both `raw` and `processed`. After `ResultStore.store_*`
 runs, `result_store.results` keeps **processed + raw + errors** in memory (raw is
-also mirrored to `*-raw.json` on disk when persisting). The audit engine consumes
+also mirrored to `*-raw.json` on disk when persisting). The merge engine consumes
 the processed outputs only.

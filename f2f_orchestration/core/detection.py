@@ -7,7 +7,10 @@ the prompt file and output path by convention.
 The five base F2F agents run for every encounter. ``telehealth-identity`` and
 ``surgical-note`` are added only when the classification output indicates the
 encounter is a telehealth or an operative/procedural note — so no manual flags
-are needed.
+are needed. ``encounter-selection`` is a transaction-level agent (not per
+encounter): it runs after the encounters are merged (consolidated) and picks the single
+most claim-defensible encounter, so it is never returned by
+``EncounterAgentSelector``.
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ class AgentName(StrEnum):
     INPATIENT_DETECTION = "inpatient-detection"
     TELEHEALTH_IDENTITY = "telehealth-identity"
     SURGICAL_NOTE = "surgical-note"
+    ENCOUNTER_SELECTION = "encounter-selection"
 
 
 # Classification categories used across the pipelines.

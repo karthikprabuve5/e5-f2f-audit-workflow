@@ -26,13 +26,14 @@ from .pipelines.f2f_pipeline import F2fPipeline
 logger = get_logger(__name__)
 
 # ---- Run configuration (edit these) ----
-RUN_MODE: RunMode = RunMode.FULL
+RUN_MODE: RunMode = RunMode.SELECTED
 SELECTED_TRANSACTIONS: list[str] = [
 # "transaction_anzaldua_esther",
 # "transaction_fisk_rolana",
 # "transaction_brewer_judy",
 # "transaction_narvaez_jose_a",
 # "transaction_reeves_maudie",
+"transaction_kane_paula",
 ]
 # Re-run transactions even if their F2F summary already exists (overwrites it).
 FORCE_RERUN: bool = False
