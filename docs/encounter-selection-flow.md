@@ -1,8 +1,16 @@
 # Encounter Selection — Flow Diagram
 
+> **Pre-filter (pure, runs before this agent).** `filter_candidates(merge_encounters,
+> classification_roster)` deterministically removes supporting-only encounters
+> (currently `referral_documents`) from the candidate set and returns
+> `(valid_candidates, excluded_encounters)`. Only `valid_candidates` is ranked below;
+> `excluded_encounters` is passed through and echoed verbatim in the output. See
+> `core/encounter_filter.py`.
+
 ```mermaid
 flowchart TD
-    A["Load merge_encounters, soc_date,<br/>POC anchors (i_certify / undersigned)"] --> B{soc_date valid?}
+    A0["filter_candidates(merge_encounters, roster)<br/>drop referral_documents -> (valid, excluded)"]:::warn --> A
+    A["Load valid_candidates, soc_date,<br/>POC anchors (i_certify / undersigned)"] --> B{soc_date valid?}
     B -- No --> Bx["flag SOC_MISSING<br/>timing = UNKNOWN for all"]:::warn
     B -- Yes --> C["Step 1: Compute window<br/>[SOC-90 ... SOC+30]"]
     Bx --> C
@@ -34,7 +42,7 @@ flowchart TD
     N -- "Yes (warnings only, e.g. weak sig)" --> S["SELECTED<br/>best_is_date_aligned per case"]:::ok
     N -- "No (residual pillar gap)" --> R["DECISIVE_DATA_GAP<br/>NEEDS_HUMAN_REVIEW"]:::warn
 
-    S --> OUT["Step 6: Output<br/>date_aligned_encounter + best_encounter_index<br/>+ best_is_date_aligned + best_encounter_score + final_statement<br/>+ per-encounter alignment + score(0-100) + breakdown<br/>+ comparison + flags"]
+    S --> OUT["Step 6: Output<br/>date_aligned_encounter + best_encounter_index<br/>+ best_is_date_aligned + best_encounter_score + final_statement<br/>+ per-encounter alignment + score(0-100) + breakdown<br/>+ comparison + excluded_encounters (from filter) + flags<br/>+ reasoning.summary (auditor-voice narrative)"]
     R --> OUT
     O --> OUT
     Z2 --> OUT
@@ -43,3 +51,16 @@ flowchart TD
     classDef warn fill:#7f5300,color:#fff,stroke:#a97400;
     classDef stop fill:#7f1d1d,color:#fff,stroke:#b91c1c;
 ```
+
+## Output notes
+
+- **`reasoning.summary` is written in an auditor's voice** — a MAC reviewer assessing
+  whether the documentation *substantiates* the F2F encounter, not a treating
+  clinician describing the visit. `FinalAuditEngine` lifts this string into
+  `audit.results.encounter_selection_summary`.
+- **`excluded_encounters`** is not produced by this agent — it is the list returned by
+  the pre-filter, passed into `SelectionPipeline.run(..., excluded_encounters=...)` and
+  echoed in the output so each excluded index (and its reason) stays visible.
+- **`best_encounter_score`** (0–100, weighted) is advisory — a tie-breaker, never an
+  override of the clinical-first / hard-gate logic above.
+

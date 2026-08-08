@@ -16,8 +16,8 @@ Source of truth for every table below is each skill's
 
 ## 1. Status families at a glance
 
-The nine agents do **not** share one status vocabulary. They fall into four
-families, chosen to match what the agent is actually deciding:
+The agents do **not** share one status vocabulary. They fall into families,
+chosen to match what the agent is actually deciding:
 
 | Family | Vocabulary | Used by | Semantics |
 |---|---|---|---|
@@ -25,6 +25,7 @@ families, chosen to match what the agent is actually deciding:
 | **Extraction** | `EXTRACTED` / `PARTIAL` / `UNABLE_TO_DETERMINE` | `poc-485-extraction`, `telehealth-identity` | Anchors/parameters pulled from a document |
 | **Detection** | `INPATIENT_DETECTED` / `OBSERVATION_DETECTED` / `NOT_INPATIENT` / `PARTIAL` / `UNABLE_TO_DETERMINE` | `inpatient-detection` | Which setting was detected |
 | **Adequacy** | `ADEQUATE` / `PARTIAL` / `INADEQUATE` / `UNABLE_TO_DETERMINE` | `surgical-note` | Whether a note is fit for F2F use |
+| **Decision** | `SELECTED` / `NEEDS_HUMAN_REVIEW` / `NO_ELIGIBLE_ENCOUNTER` | `encounter-selection` | Which encounter is best (transaction-level) |
 | **(none — structural)** | no verdict `status`; per-encounter `classification_confidence` | `classification` | Splits the document into encounters |
 
 Two invariants hold across **all** verdict/extraction/detection/adequacy agents:
@@ -241,6 +242,27 @@ the per-encounter agents that follow.
 `encounters[].encounter_subcategory`, `encounters[].classification_confidence`,
 `encounters[].classification_notes`.
 
+### 3.10 Encounter selection — `decision` *(transaction-level)*
+
+Runs once per transaction, **after** the merge + referral filter. It does not
+re-validate any criterion — it ranks the already-validated merge verdicts to pick
+the single best F2F encounter. Instead of a MET-family verdict it emits a
+`result.decision`:
+
+| Decision | Meaning |
+|---|---|
+| `SELECTED` | A best encounter was chosen and is defensible (`best_encounter_index` set) |
+| `NEEDS_HUMAN_REVIEW` | Ambiguous / gap (e.g. primary-dx unaligned, date-match overridden by clinical, residual pillar gap) — a recommendation is provided but flagged |
+| `NO_ELIGIBLE_ENCOUNTER` | No encounter survived the hard gates / SOC-90…SOC+30 window (`best_encounter_index` may be `null`) |
+
+**Driving fields:** `result.best_encounter_index`, `result.best_encounter_score`
+(0–100, advisory tie-breaker only), `result.best_is_date_aligned`,
+`result.date_aligned_encounter`, `result.excluded_encounters` (echoed from the
+pre-filter), plus per-encounter alignment. `reasoning.summary` is an **auditor-voice**
+narrative (a MAC reviewer assessing documentation substantiation, not a treating
+clinician). Requires a runtime `soc_date` + `client_name`. See
+[`encounter-selection-flow.md`](./encounter-selection-flow.md) for the ranking logic.
+
 ---
 
 ## 4. `rules_applied` outcomes (shared vocabulary)
@@ -272,20 +294,21 @@ The per-status `reasoning.status` mirrors the top-level `status`, and
 
 ## 5. How agent status surfaces in `merge-encounters/results.json`
 
-The merge engine (`f2f_orchestration/merge_encounters/merge_engine.py`) consumes each
+The merge engine (`e5_f2f_audit/merge_encounters/merge_engine.py`) consumes each
 agent output and projects it into merge topics. Two things happen to `status`:
 
 **a) Per-agent status is copied into the merge topic.** Topic builders that map
 to a single verdict agent carry the agent's `status` + `confidence` straight
 through:
 
-- `homebound`, `skilled_services`, `inpatient` topics include
-  `{encounter_index, status, confidence, reasoning}` and set
-  `reasoning.status` from the agent.
-- `eligible_practitioners` (encounter-identity) and `primary_hh_reason`
-  (primary-diagnosis) carry `confidence` and a `reasoning` block; the verdict
-  lives in the envelope `status` so `reasoning.status` is omitted
-  (`include_status=False`).
+- `homebound`, `skilled_services`, `primary_hh_reason` (primary-diagnosis),
+  `inpatient`, `surgical_note`, and `telehealth` topics set `reasoning.status`
+  from the agent (`include_status=True`) — the raw output of these agents carries a
+  per-status `reasoning.status`, so surfacing it keeps the merge consistent.
+- `eligible_practitioners` (encounter-identity) carries `confidence` and a
+  `reasoning` block, but the verdict lives in the envelope `status`, so
+  `reasoning.status` is omitted (`include_status=False`).
+- `timely_encounter` carries no `reasoning` block (date-window verdict only).
 - Encounters an agent did not run on are emitted with `status: null` /
   `confidence: null` and a null reasoning block — never silently dropped.
 
@@ -306,6 +329,14 @@ as a false PASS:
 > additionally surfaced in `ResultStore.results["errors"]` for the orchestrator
 > (see `docs/integration-and-failure-handling.md`).
 
+**c) The final audit is a lossless superset.** `FinalAuditEngine`
+(`e5_f2f_audit/audit/audit_engine.py`) keeps **every** merged encounter untouched
+(including their per-agent `status` / `reasoning.status`) and only prefixes the
+selection headline fields onto `audit["results"]`: `best_encounter_index`,
+`best_encounter_score`, `best_is_date_aligned`, `date_aligned_encounter`,
+`excluded_encounters`, and `encounter_selection_summary` (the selection's
+`reasoning.summary`). No status is recomputed or dropped.
+
 ---
 
 ## 6. Source files
@@ -321,4 +352,6 @@ as a false PASS:
 | Inpatient detection | `skills/inpatient-detection/inpatient-detection/references/output-schema.md` |
 | POC/485 extraction | `skills/poc-485-extraction/poc-485-extraction/references/output-schema.md` |
 | Classification | `skills/classification/classification/references/output-schema.md` |
-| Merge projection | `f2f_orchestration/merge_encounters/merge_engine.py`, `f2f_orchestration/merge_encounters/key_builders/` |
+| Encounter selection | `skills/encounter-selection/encounter-selection/references/output-schema.md` |
+| Merge projection | `e5_f2f_audit/merge_encounters/merge_engine.py`, `e5_f2f_audit/merge_encounters/key_builders/` |
+| Final audit projection | `e5_f2f_audit/audit/audit_engine.py` |

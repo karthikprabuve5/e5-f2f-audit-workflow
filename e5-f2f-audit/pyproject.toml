@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "f2f-orchestration"
+name = "e5-f2f-audit"
 version = "0.1.0"
 description = "Face-to-Face (F2F) / Plan-of-Care (POC) home-health audit agent orchestration."
 readme = "README.md"
@@ -23,21 +23,23 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 
-# Convenience CLIs. `python -m f2f_orchestration.run_<x>` keeps working too.
+# Convenience CLIs. `python -m e5_f2f_audit.run_<x>` keeps working too.
 [project.scripts]
-f2f-poc = "f2f_orchestration.run_poc:main"
-f2f-f2f = "f2f_orchestration.run_f2f:main"
-f2f-merge = "f2f_orchestration.run_merge_encounters:main"
-f2f-select = "f2f_orchestration.run_selection:main"
-f2f-audit = "f2f_orchestration.run_audit:main"
+f2f-poc = "e5_f2f_audit.run_poc:main"
+f2f-f2f = "e5_f2f_audit.run_f2f:main"
+f2f-merge = "e5_f2f_audit.run_merge_encounters:main"
+f2f-select = "e5_f2f_audit.run_selection:main"
+f2f-audit = "e5_f2f_audit.run_audit:main"
 
+# src-layout: the import package lives under src/.
 [tool.setuptools.packages.find]
-include = ["f2f_orchestration*"]
-exclude = ["f2f_orchestration.tests*"]
+where = ["src"]
+include = ["e5_f2f_audit*"]
+exclude = ["e5_f2f_audit.tests*"]
 
 # Ship the bundled prompts and skills so an installed wheel is self-contained
 # (the agentic layer loads them at runtime). Runtime I/O dirs (ocr-markdown/,
 # outputs/, soc_dates.json) are NOT packaged — they stay external and are
 # overridable via OCR_MARKDOWN_DIR / OUTPUTS_DIR / SOC_DATES_FILE.
 [tool.setuptools.package-data]
-"f2f_orchestration" = ["prompts/**/*.md", "skills/**/*.md"]
+"e5_f2f_audit" = ["prompts/**/*.md", "skills/**/*.md"]
