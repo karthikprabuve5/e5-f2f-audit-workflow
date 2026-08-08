@@ -2,7 +2,7 @@
 
 Configure the run below, then execute from the repo root:
 
-    python -m f2f_orchestration.run_merge_encounters
+    python -m e5_f2f_audit.run_merge_encounters
 
 * ``RUN_MODE = RunMode.FULL``     → merge every transaction found under outputs/.
 * ``RUN_MODE = RunMode.SELECTED`` → merge only the ids in ``SELECTED_TRANSACTIONS``.

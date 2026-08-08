@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from f2f_orchestration.core.prompts import PromptRenderer
+from e5_f2f_audit.core.prompts import PromptRenderer
 
 
 def test_render_replaces_all_placeholders(tmp_path: Path) -> None:

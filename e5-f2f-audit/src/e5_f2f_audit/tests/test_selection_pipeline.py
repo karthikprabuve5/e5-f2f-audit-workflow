@@ -10,7 +10,7 @@ import asyncio
 
 import pytest
 
-from f2f_orchestration.pipelines.selection_pipeline import SelectionPipeline
+from e5_f2f_audit.pipelines.selection_pipeline import SelectionPipeline
 
 
 def _make_pipeline() -> SelectionPipeline:

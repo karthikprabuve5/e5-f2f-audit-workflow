@@ -8,7 +8,7 @@ import time
 import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError, ReadTimeoutError
 
-from f2f_orchestration.pipelines.base_pipeline import BasePipeline
+from e5_f2f_audit.pipelines.base_pipeline import BasePipeline
 
 
 def _make_pipeline(*, stagger: float = 0.0) -> BasePipeline:

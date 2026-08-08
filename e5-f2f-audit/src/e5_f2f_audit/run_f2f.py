@@ -2,7 +2,7 @@
 
 Configure the run below, then execute from the repo root:
 
-    python -m f2f_orchestration.run_f2f
+    python -m e5_f2f_audit.run_f2f
 
 * ``RUN_MODE = RunMode.FULL``     → run every transaction found under ocr-markdown/.
 * ``RUN_MODE = RunMode.SELECTED`` → run only the ids in ``SELECTED_TRANSACTIONS``.
@@ -46,7 +46,7 @@ async def _run_one(
     anchors = bootstrap.load_saved_anchors(transaction_id)
     result_store = bootstrap.build_result_store(transaction_id)
     results = await pipeline.run(
-        transaction_id=f"{transaction_id}_run2",
+        transaction_id=transaction_id,
         f2f_document_content=f2f_content,
         anchors=anchors,
         result_store=result_store,

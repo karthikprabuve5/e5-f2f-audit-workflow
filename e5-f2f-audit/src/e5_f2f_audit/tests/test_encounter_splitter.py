@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from f2f_orchestration.core.encounter_splitter import EncounterSplitter
+from e5_f2f_audit.core.encounter_splitter import EncounterSplitter
 
 _DOCUMENT = "\n".join(
     [

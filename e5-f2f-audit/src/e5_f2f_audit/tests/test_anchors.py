@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from f2f_orchestration.core.anchors import (
+from e5_f2f_audit.core.anchors import (
     PLACEHOLDER_CLIENT_NAME,
     PLACEHOLDER_POC_DESCRIPTION,
     PLACEHOLDER_POC_ICD10_CODE,

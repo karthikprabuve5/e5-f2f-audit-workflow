@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from f2f_orchestration.core.detection import AgentName
-from f2f_orchestration.core.output_validator import (
+from e5_f2f_audit.core.detection import AgentName
+from e5_f2f_audit.core.output_validator import (
     AGENT_SCHEMA_SPECS,
     SHAPE_ENVELOPE,
     SchemaValidator,

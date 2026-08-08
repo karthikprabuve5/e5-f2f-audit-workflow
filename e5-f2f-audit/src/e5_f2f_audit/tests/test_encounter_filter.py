@@ -11,7 +11,7 @@ import copy
 
 import pytest
 
-from f2f_orchestration.core.encounter_filter import (
+from e5_f2f_audit.core.encounter_filter import (
     EXCLUDED_SELECTION_CATEGORIES,
     EXCLUSION_REASON,
     REFERRAL_CATEGORY,

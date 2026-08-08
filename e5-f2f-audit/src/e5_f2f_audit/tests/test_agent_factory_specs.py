@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from f2f_orchestration.agents.agent_factory import AGENT_INSTRUCTIONS, AGENT_SPECS
-from f2f_orchestration.core.detection import AgentName
+from e5_f2f_audit.agents.agent_factory import AGENT_INSTRUCTIONS, AGENT_SPECS
+from e5_f2f_audit.core.detection import AgentName
 
 
 def test_every_agent_has_a_spec_and_an_instruction() -> None:

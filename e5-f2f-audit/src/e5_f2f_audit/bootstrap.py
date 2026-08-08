@@ -1,6 +1,6 @@
 """Local-dev wiring: build collaborators and pipelines from configuration.
 
-The agentic (Tier 2) values are grouped in :class:`~f2f_orchestration.config.OrchestrationConfig`.
+The agentic (Tier 2) values are grouped in :class:`~e5_f2f_audit.config.OrchestrationConfig`.
 The ``build_*`` helpers take that config and turn it into constructed objects; the
 local entrypoints call them with no argument, so ``config`` defaults to
 ``OrchestrationConfig.from_env()`` (the same ``os.getenv`` + defaults behaviour as

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from f2f_orchestration.core.result_store import ResultStore
+from e5_f2f_audit.core.result_store import ResultStore
 
 _OUTPUTS_DIR = Path("unused-when-not-persisting")
 

@@ -2,7 +2,7 @@
 
 Configure the run below, then execute from the repo root:
 
-    python -m f2f_orchestration.run_selection
+    python -m e5_f2f_audit.run_selection
 
 * ``RUN_MODE = RunMode.FULL``     → select for every transaction that has both a
   ``merge-encounters/results.json`` and an entry in the SOC date map.

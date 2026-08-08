@@ -18,7 +18,7 @@ import sys
 from datetime import datetime, timezone
 from typing import IO, Any
 
-PACKAGE_LOGGER_NAME = "f2f_orchestration"
+PACKAGE_LOGGER_NAME = "e5_f2f_audit"
 
 # LogRecord attributes that are not user-supplied context.
 _RESERVED_RECORD_KEYS = frozenset(

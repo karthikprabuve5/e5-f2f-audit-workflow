@@ -13,14 +13,14 @@ from pathlib import Path
 
 import pytest
 
-from f2f_orchestration import bootstrap
-from f2f_orchestration.config import (
+from e5_f2f_audit import bootstrap
+from e5_f2f_audit.config import (
     ConcurrencyConfig,
     ModelConfig,
     OrchestrationConfig,
     TracingConfig,
 )
-from f2f_orchestration.pipelines.selection_pipeline import SelectionPipeline
+from e5_f2f_audit.pipelines.selection_pipeline import SelectionPipeline
 
 # Every environment key the config touches, cleared before each test for isolation.
 _CONFIG_ENV_KEYS = (

@@ -87,8 +87,8 @@ SELECTED_TRANSACTIONS = ["transaction_anzaldua_esther"]
 Then, from the repo root:
 
 ```bash
-python -m f2f_orchestration.run_poc     # extract + save anchors
-python -m f2f_orchestration.run_f2f     # audit using the saved anchors
+python -m e5_f2f_audit.run_poc     # extract + save anchors
+python -m e5_f2f_audit.run_f2f     # audit using the saved anchors
 ```
 
 Input documents are read from `ocr-markdown/<transaction_id>/{POC.md,F2F.md}`.

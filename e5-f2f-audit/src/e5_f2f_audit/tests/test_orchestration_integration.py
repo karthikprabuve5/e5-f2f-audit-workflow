@@ -19,18 +19,18 @@ import contextlib
 from pathlib import Path
 from typing import Any
 
-from f2f_orchestration.agents.agent_factory import AgentOutput
-from f2f_orchestration.merge_encounters import (
+from e5_f2f_audit.agents.agent_factory import AgentOutput
+from e5_f2f_audit.merge_encounters import (
     MergeEncountersEngine,
     TransactionOutputs,
     build_merge_encounters_payload,
 )
-from f2f_orchestration.merge_encounters.key_builders import BUILDERS
-from f2f_orchestration.core.detection import AgentName
-from f2f_orchestration.core.output_validator import ValidationResult
-from f2f_orchestration.core.result_store import ResultStore
-from f2f_orchestration.pipelines.f2f_pipeline import F2fPipeline
-from f2f_orchestration.pipelines.poc_pipeline import PocPipeline
+from e5_f2f_audit.merge_encounters.key_builders import BUILDERS
+from e5_f2f_audit.core.detection import AgentName
+from e5_f2f_audit.core.output_validator import ValidationResult
+from e5_f2f_audit.core.result_store import ResultStore
+from e5_f2f_audit.pipelines.f2f_pipeline import F2fPipeline
+from e5_f2f_audit.pipelines.poc_pipeline import PocPipeline
 
 _CLIENT = "CLIENT_A"
 _TXN = "transaction_smoke"

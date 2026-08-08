@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from f2f_orchestration.pipelines.poc_pipeline import POCClassificationError, PocPipeline
+from e5_f2f_audit.pipelines.poc_pipeline import POCClassificationError, PocPipeline
 
 
 def test_selects_the_only_poc_485_encounter() -> None:

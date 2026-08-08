@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from f2f_orchestration.agents.agent_factory import AgentOutput
-from f2f_orchestration.core.detection import AgentName
-from f2f_orchestration.core.output_validator import ValidationResult
-from f2f_orchestration.pipelines.f2f_pipeline import F2fPipeline
+from e5_f2f_audit.agents.agent_factory import AgentOutput
+from e5_f2f_audit.core.detection import AgentName
+from e5_f2f_audit.core.output_validator import ValidationResult
+from e5_f2f_audit.pipelines.f2f_pipeline import F2fPipeline
 
 
 def _ok_output(agent: AgentName, processed: dict[str, Any]) -> AgentOutput:
@@ -62,7 +62,7 @@ def test_exception_result_is_recorded_as_failed_not_stored() -> None:
 
 def test_unparseable_agent_output_persists_raw_text_and_is_failed() -> None:
     # Arrange — an AgentOutputError carrying the raw (non-JSON) content
-    from f2f_orchestration.agents.agent_factory import AgentOutputError
+    from e5_f2f_audit.agents.agent_factory import AgentOutputError
 
     store = _RecordingStore()
     agents = [AgentName.HOMEBOUND]

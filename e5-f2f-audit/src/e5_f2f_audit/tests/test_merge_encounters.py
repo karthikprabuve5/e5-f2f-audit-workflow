@@ -18,9 +18,9 @@ from typing import Any
 
 import pytest
 
-from f2f_orchestration.core.detection import AgentName
-from f2f_orchestration.merge_encounters import MergeEncountersEngine, TransactionOutputs
-from f2f_orchestration.merge_encounters.key_builders import BUILDERS
+from e5_f2f_audit.core.detection import AgentName
+from e5_f2f_audit.merge_encounters import MergeEncountersEngine, TransactionOutputs
+from e5_f2f_audit.merge_encounters.key_builders import BUILDERS
 
 _GENERATED_AT = "2026-07-30T00:00:00+00:00"
 

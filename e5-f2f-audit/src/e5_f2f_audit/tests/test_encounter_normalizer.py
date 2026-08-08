@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from f2f_orchestration.core.encounter_normalizer import EncounterNormalizer
+from e5_f2f_audit.core.encounter_normalizer import EncounterNormalizer
 
 # Page 1 spans lines 1..5, Page 2 spans lines 6..7.
 _DOCUMENT = "\n".join(

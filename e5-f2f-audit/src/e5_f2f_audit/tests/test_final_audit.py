@@ -12,7 +12,7 @@ import copy
 
 import pytest
 
-from f2f_orchestration.audit import FinalAuditEngine
+from e5_f2f_audit.audit import FinalAuditEngine
 
 GENERATED_AT = "2026-08-08T00:00:00+00:00"
 

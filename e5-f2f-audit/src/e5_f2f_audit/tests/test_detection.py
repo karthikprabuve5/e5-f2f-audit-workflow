@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from f2f_orchestration.core.detection import AgentName, EncounterAgentSelector
+from e5_f2f_audit.core.detection import AgentName, EncounterAgentSelector
 
 _BASE_AGENTS = [
     AgentName.ENCOUNTER_IDENTITY,

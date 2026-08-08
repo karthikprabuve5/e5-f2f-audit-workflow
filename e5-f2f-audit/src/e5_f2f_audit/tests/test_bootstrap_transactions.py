@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from f2f_orchestration import bootstrap
-from f2f_orchestration.core.document_source import DocumentKind
+from e5_f2f_audit import bootstrap
+from e5_f2f_audit.core.document_source import DocumentKind
 
 
 @pytest.fixture

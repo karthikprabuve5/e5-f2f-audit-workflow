@@ -2,7 +2,7 @@
 
 Configure the run below, then execute from the repo root:
 
-    python -m f2f_orchestration.run_audit
+    python -m e5_f2f_audit.run_audit
 
 * ``RUN_MODE = RunMode.FULL``     → audit every transaction that has both a
   ``merge-encounters/results.json`` and an ``encounter-selection/results.json``.
@@ -11,11 +11,13 @@ Configure the run below, then execute from the repo root:
 This entrypoint reads each transaction's consolidated ``merge-encounters/results.json``
 and its ``encounter-selection/results.json`` from disk, runs the pure
 :class:`FinalAuditEngine`, and writes one ``outputs/<txn>/audit/results.json`` per
-transaction. The final audit keeps the identical merge-encounters format but retains
-only the selected best encounter plus the excluded (referral) encounters, and
-surfaces the selection headline fields at the top of ``results``. Transactions run
-one by one; a failing transaction is logged and skipped, and a batch report is
-emitted at the end.
+transaction. The final audit keeps the identical merge-encounters format with **every**
+encounter retained (a lossless superset) and simply surfaces the selection headline
+fields (``best_encounter_index``, ``best_encounter_score``, ``best_is_date_aligned``,
+``date_aligned_encounter``, ``excluded_encounters``, ``encounter_selection_summary``)
+at the top of ``results`` for downstream consumers to derive their own view.
+Transactions run one by one; a failing transaction is logged and skipped, and a batch
+report is emitted at the end.
 
 An external orchestrator (Temporal, etc.) does not use this entrypoint: it feeds its
 own in-memory merge + selection payloads to the same pure engine via
